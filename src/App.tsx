@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { BrowserRouter, Route, Routes, Navigate } from 'react-router-dom';
 import AppLayout from './components/layout/AppLayout';
 import Onboarding from './pages/Onboarding';
@@ -9,7 +9,7 @@ import Recommendations from './pages/Recommendations';
 
 const ONBOARDING_COMPLETE_KEY = 'merchantmind:onboardingComplete';
 
-function hasCompletedOnboarding() {
+function readOnboardingFlag() {
   try {
     return window.localStorage.getItem(ONBOARDING_COMPLETE_KEY) === 'true';
   } catch {
@@ -18,16 +18,25 @@ function hasCompletedOnboarding() {
 }
 
 export default function App() {
-  const onboardingComplete = hasCompletedOnboarding();
+  // Reactive state — so when Onboarding calls onComplete(), routes re-render immediately
+  const [onboardingComplete, setOnboardingComplete] = useState(readOnboardingFlag);
+
+  function handleOnboardingComplete() {
+    setOnboardingComplete(true);
+  }
 
   return (
     <BrowserRouter>
       <Routes>
         <Route
           path="/onboarding"
-          element={onboardingComplete ? <Navigate to="/dashboard" replace /> : <Onboarding />}
+          element={
+            onboardingComplete
+              ? <Navigate to="/dashboard" replace />
+              : <Onboarding onComplete={handleOnboardingComplete} />
+          }
         />
-        
+
         {/* Main Application Layout */}
         <Route element={onboardingComplete ? <AppLayout /> : <Navigate to="/onboarding" replace />}>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
@@ -36,7 +45,7 @@ export default function App() {
           <Route path="/chat" element={<Chat />} />
           <Route path="/recommendations" element={<Recommendations />} />
 
-          {/* Legacy routes redirected to simplified IA */}
+          {/* Legacy routes */}
           <Route path="/inventory" element={<Navigate to="/dashboard" replace />} />
           <Route path="/market" element={<Navigate to="/map" replace />} />
           <Route path="/run-hub" element={<Navigate to="/dashboard" replace />} />

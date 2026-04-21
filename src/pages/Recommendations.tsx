@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { ListOrdered, Filter, CheckCircle2 } from 'lucide-react';
+import { ListOrdered, CheckCircle2 } from 'lucide-react';
 import { ALERTS } from '../data/mock';
 import { cn } from '../lib/utils';
+import { motion } from 'motion/react';
 
 export default function Recommendations() {
   const [filter, setFilter] = useState('all');
 
-  // Generating some historical mock data by cloning ALERTS and changing dates/status
   const historical = [
     ...ALERTS,
     { id: 'h1', agent: 'Inventory Planner', urgency: 'amber', headline: 'Tapioca Pearls below trigger threshold', detail: 'Stock dropping to 6 days. Standard delivery window is 3 days.', time: 'Last week', status: 'acted_on', note: 'Ordered 15kg via Whatsapp.' },
@@ -16,65 +16,89 @@ export default function Recommendations() {
 
   const filtered = filter === 'all' ? historical : historical.filter(a => a.status === filter);
 
-  return (
-    <div className="flex-1 overflow-y-auto bg-neutral-50 h-full font-sans text-neutral-900">
-      <header className="px-8 py-6 bg-white border-b border-neutral-200 flex justify-between items-end">
-         <div>
-            <div className="flex items-center text-sm uppercase tracking-widest font-bold text-neutral-400 mb-1">
-              <ListOrdered className="w-4 h-4 mr-2" /> Accountability
-            </div>
-            <h1 className="text-3xl font-semibold tracking-tight">Recommendations Log</h1>
-         </div>
-         <div className="flex gap-2">
-            {['all', 'pending', 'acted_on', 'dismissed'].map(f => (
-               <button 
-                 key={f}
-                 onClick={() => setFilter(f)}
-                 className={cn(
-                   "px-4 py-2 rounded-lg text-sm font-medium capitalize",
-                   filter === f ? "bg-neutral-900 text-white" : "bg-white border border-neutral-200 text-neutral-600 hover:bg-neutral-50"
-                 )}
-               >
-                 {f.replace('_', ' ')}
-               </button>
-            ))}
-         </div>
-      </header>
-      
-      <div className="p-8 max-w-7xl mx-auto space-y-4">
-         {filtered.map((item, i) => (
-            <div key={i} className="bg-white border border-neutral-200 rounded-xl p-5 shadow-sm flex flex-col md:flex-row md:items-center gap-6">
-               <div className="w-[120px] shrink-0">
-                  <div className="text-xs font-mono text-neutral-500 mb-2">{item.time}</div>
-                  <div className="flex items-center space-x-1.5">
-                     <div className={cn("w-2 h-2 rounded-full", item.urgency === 'red' ? "bg-red-500" : item.urgency === 'amber' ? "bg-amber-500" : "bg-teal-500")} />
-                     <span className="text-xs font-semibold uppercase tracking-wide text-neutral-500">{item.agent}</span>
-                  </div>
-               </div>
-               
-               <div className="flex-1">
-                  <h3 className="font-semibold text-lg mb-1">{item.headline}</h3>
-                  <p className="text-sm text-neutral-600">{item.detail}</p>
-                  
-                  {('note' in item) && item.note && (
-                     <div className="mt-3 bg-neutral-50 border border-neutral-200 rounded-lg p-3 text-sm flex items-start">
-                        <CheckCircle2 className="w-4 h-4 text-teal-600 mr-2 mt-0.5 shrink-0"/>
-                        <span className="italic text-neutral-600">"{" "}{(item as any).note}{" "} "</span>
-                     </div>
-                  )}
-               </div>
+  const urgencyColor = (u: string) => u === 'red' ? '#FF4B4B' : u === 'amber' ? '#FFB000' : '#00D1C1';
+  const statusStyle = (s: string) => {
+    if (s === 'pending') return { background: 'rgba(255,176,0,0.12)', color: '#FFB000', border: '1px solid rgba(255,176,0,0.2)' };
+    if (s === 'acted_on') return { background: 'rgba(0,209,193,0.1)', color: '#00D1C1', border: '1px solid rgba(0,209,193,0.2)' };
+    return { background: 'rgba(255,255,255,0.05)', color: '#4B5563', border: '1px solid rgba(255,255,255,0.08)' };
+  };
 
-               <div className="w-[120px] shrink-0 text-right">
-                  <span className={cn(
-                    "inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold uppercase",
-                    item.status === 'pending' ? "bg-amber-100 text-amber-800" : 
-                    item.status === 'acted_on' ? "bg-teal-100 text-teal-800" : "bg-neutral-100 text-neutral-600"
-                  )}>
-                    {item.status.replace('_', ' ')}
-                  </span>
-               </div>
+  return (
+    <div className="flex-1 overflow-y-auto h-full font-sans" style={{ background: '#0D0D0D', color: '#F8F9FA' }}>
+      <header
+        className="px-8 py-6 flex justify-between items-end shrink-0"
+        style={{ background: '#111318', borderBottom: '1px solid rgba(255,255,255,0.07)', boxShadow: '0 2px 20px rgba(0,0,0,0.4)' }}
+      >
+        <div>
+          <div className="flex items-center text-[10px] uppercase tracking-widest font-bold mb-1" style={{ color: '#4B5563' }}>
+            <ListOrdered className="w-4 h-4 mr-2" /> Accountability
+          </div>
+          <h1 className="text-3xl font-semibold tracking-tight" style={{ color: '#F8F9FA' }}>Recommendations Log</h1>
+        </div>
+        <div className="flex gap-2">
+          {['all', 'pending', 'acted_on', 'dismissed'].map(f => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className="px-4 py-2 rounded-lg text-sm font-medium capitalize transition-all"
+              style={
+                filter === f
+                  ? { background: 'rgba(0,209,193,0.15)', color: '#00D1C1', border: '1px solid rgba(0,209,193,0.3)' }
+                  : { background: 'rgba(255,255,255,0.04)', color: '#6B7280', border: '1px solid rgba(255,255,255,0.08)' }
+              }
+            >
+              {f.replace('_', ' ')}
+            </button>
+          ))}
+        </div>
+      </header>
+
+      <div className="p-8 max-w-7xl mx-auto space-y-4">
+        {filtered.map((item, i) => (
+          <motion.div
+            key={item.id ?? i}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: i * 0.05 }}
+            className="rounded-xl p-5 flex flex-col md:flex-row md:items-center gap-6"
+            style={{ background: '#111318', border: '1px solid rgba(255,255,255,0.07)' }}
+          >
+            <div className="w-[120px] shrink-0">
+              <div className="text-xs font-mono mb-2" style={{ color: '#4B5563' }}>{item.time}</div>
+              <div className="flex items-center gap-1.5">
+                <div
+                  className="w-2 h-2 rounded-full"
+                  style={{ background: urgencyColor(item.urgency), boxShadow: `0 0 6px ${urgencyColor(item.urgency)}` }}
+                />
+                <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: '#6B7280' }}>{item.agent}</span>
+              </div>
             </div>
-         ))}
+
+            <div className="flex-1">
+              <h3 className="font-semibold text-lg mb-1" style={{ color: '#F8F9FA' }}>{item.headline}</h3>
+              <p className="text-sm" style={{ color: '#6B7280' }}>{item.detail}</p>
+
+              {('note' in item) && item.note && (
+                <div
+                  className="mt-3 rounded-lg p-3 text-sm flex items-start"
+                  style={{ background: 'rgba(0,209,193,0.06)', border: '1px solid rgba(0,209,193,0.15)' }}
+                >
+                  <CheckCircle2 className="w-4 h-4 mr-2 mt-0.5 shrink-0" style={{ color: '#00D1C1' }} />
+                  <span className="italic" style={{ color: '#9CA3AF' }}>"{(item as any).note}"</span>
+                </div>
+              )}
+            </div>
+
+            <div className="w-[120px] shrink-0 text-right">
+              <span
+                className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold uppercase"
+                style={statusStyle(item.status)}
+              >
+                {item.status.replace('_', ' ')}
+              </span>
+            </div>
+          </motion.div>
+        ))}
       </div>
     </div>
   );

@@ -1,7 +1,7 @@
 import React from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, Circle } from 'react-leaflet';
 import { motion, AnimatePresence } from 'motion/react';
-import { Bell, Activity, Target } from 'lucide-react';
+import { Bell, Activity, Target, Zap } from 'lucide-react';
 import { WORLD_SIGNALS, MERCHANT_INFO, AGENTS, ALERTS, LOCAL_COMPETITORS } from '../data/mock';
 import L from 'leaflet';
 
@@ -13,11 +13,12 @@ export default function IntelligenceMap() {
   const [now, setNow] = React.useState(new Date());
   const [scanRadius, setScanRadius] = React.useState(4600);
   const [hotspotIndex, setHotspotIndex] = React.useState(0);
+  const [tick, setTick] = React.useState(0);
 
   const getUrgencyColor = (urgency: string) => {
     if (urgency === 'red') return '#ef4444';
     if (urgency === 'amber') return '#f59e0b';
-    return '#14b8a6'; // teal
+    return '#14b8a6';
   };
 
   const createDotIcon = (color: string) => L.divIcon({
@@ -49,10 +50,10 @@ export default function IntelligenceMap() {
   });
 
   const mapMessage = mapView === 'regional'
-    ? 'Large map: Tracking SEA-level disruptions, commodities, and demand shifts.'
+    ? 'REGIONAL MAP — Tracking SEA-level disruptions, commodities & demand shifts.'
     : localMapSize === 'large'
-      ? 'Large 5km map: Full local view of competitors, businesses, and nearby crowd signals.'
-      : 'Small 5km map: Compact local snapshot for quick competitor awareness.';
+      ? 'LOCAL 5KM — Full view of competitors, businesses & nearby crowd signals.'
+      : 'LOCAL 5KM — Compact snapshot for quick competitor awareness.';
 
   const localCompetitors = LOCAL_COMPETITORS.filter(item => item.type !== 'Shopping Center');
   const localCrowdSpots = LOCAL_COMPETITORS.filter(item => item.type === 'Shopping Center');
@@ -67,71 +68,110 @@ export default function IntelligenceMap() {
     const hotspotInterval = setInterval(() => {
       setHotspotIndex(prev => (prev + 1) % Math.max(localHotspots.length, 1));
     }, 3500);
+    const tickInterval = setInterval(() => setTick(t => t + 1), 2000);
 
     return () => {
       clearInterval(clockInterval);
       clearInterval(scanInterval);
       clearInterval(hotspotInterval);
+      clearInterval(tickInterval);
     };
   }, [localHotspots.length]);
 
   return (
-    <div className="flex-1 min-h-0 flex flex-col bg-[#F8F9FA] text-[#1A1A1A] relative overflow-hidden">
+    <div className="flex-1 min-h-0 flex flex-col relative overflow-hidden" style={{ background: '#0D0D0D', color: '#F8F9FA' }}>
       <style>{`
         @keyframes mmPulse {
           0% { transform: scale(0.92); opacity: 0.7; }
-          50% { transform: scale(1.12); opacity: 1; }
+          50% { transform: scale(1.2); opacity: 1; }
           100% { transform: scale(0.92); opacity: 0.7; }
         }
         @keyframes mmGlowPulse {
           0% { box-shadow: 0 0 8px rgba(20,184,166,0.45); }
-          50% { box-shadow: 0 0 18px rgba(20,184,166,0.9); }
+          50% { box-shadow: 0 0 24px rgba(20,184,166,1); }
           100% { box-shadow: 0 0 8px rgba(20,184,166,0.45); }
+        }
+        @keyframes mmScan {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+        @keyframes mmDataFlow {
+          0% { opacity: 0.3; transform: translateY(0); }
+          50% { opacity: 1; }
+          100% { opacity: 0.3; transform: translateY(-4px); }
+        }
+        @keyframes mmBlink {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.3; }
         }
         .mm-signal-dot { animation: mmPulse 1.8s ease-in-out infinite; }
         .mm-merchant-dot { animation: mmGlowPulse 2.2s ease-in-out infinite; }
         .mm-competitor-dot { animation: mmPulse 2.1s ease-in-out infinite; }
         .mm-crowd-dot { animation: mmPulse 1.4s ease-in-out infinite; }
+
+        /* Dark leaflet override */
+        .leaflet-container { background: #111318 !important; }
+        .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(0.85) saturate(0.8); }
+        .leaflet-popup-content-wrapper {
+          background: #1A1F2E !important;
+          border: 1px solid rgba(0,209,193,0.2) !important;
+          color: #F8F9FA !important;
+          box-shadow: 0 8px 32px rgba(0,0,0,0.6) !important;
+          border-radius: 10px !important;
+        }
+        .leaflet-popup-tip { background: #1A1F2E !important; }
+        .leaflet-popup-close-button { color: #6B7280 !important; }
+
+        /* Scrollbar for bottom panel */
+        .mm-scroll::-webkit-scrollbar { height: 4px; }
+        .mm-scroll::-webkit-scrollbar-track { background: rgba(255,255,255,0.03); }
+        .mm-scroll::-webkit-scrollbar-thumb { background: rgba(0,209,193,0.3); border-radius: 2px; }
       `}</style>
+
       {/* Top Bar */}
-      <header className="h-14 bg-white border-b border-gray-200 flex items-center justify-between px-6 shrink-0 z-20 shadow-sm">
-        <div className="flex items-center text-sm text-gray-500 font-medium gap-3">
-          <span className="font-mono">{new Date().toISOString().split('T')[0]}</span>
-          <span className="text-gray-300">|</span>
-          <span className="uppercase tracking-wider text-xs font-bold text-[#00D1C1]">Live Intelligence Map</span>
-          <div className="ml-2 flex items-center rounded-md border border-gray-200 bg-gray-50 p-0.5">
+      <header className="h-14 flex items-center justify-between px-6 shrink-0 z-20" style={{ background: '#111318', borderBottom: '1px solid rgba(255,255,255,0.07)', boxShadow: '0 2px 20px rgba(0,0,0,0.4)' }}>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-xs" style={{ color: '#4B5563' }}>{new Date().toISOString().split('T')[0]}</span>
+            <span style={{ color: 'rgba(255,255,255,0.1)' }}>|</span>
+            <span className="uppercase tracking-wider text-xs font-bold" style={{ color: '#00D1C1' }}>Live Intelligence Map</span>
+          </div>
+          <div className="flex items-center rounded-md p-0.5" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}>
             <button
-              onClick={() => {
-                setMapView('regional');
-                setSelectedSignal(null);
+              onClick={() => { setMapView('regional'); setSelectedSignal(null); }}
+              className="px-2.5 py-1 text-[10px] font-bold rounded transition-all"
+              style={{
+                background: mapView === 'regional' ? 'rgba(0,209,193,0.15)' : 'transparent',
+                color: mapView === 'regional' ? '#00D1C1' : '#6B7280',
               }}
-              className={`px-2.5 py-1 text-[10px] font-bold rounded ${mapView === 'regional' ? 'bg-white text-[#1A1A1A] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
             >
-              LARGE MAP
+              REGIONAL
             </button>
             <button
-              onClick={() => {
-                setMapView('local');
-                setSelectedSignal(null);
+              onClick={() => { setMapView('local'); setSelectedSignal(null); }}
+              className="px-2.5 py-1 text-[10px] font-bold rounded transition-all"
+              style={{
+                background: mapView === 'local' ? 'rgba(0,209,193,0.15)' : 'transparent',
+                color: mapView === 'local' ? '#00D1C1' : '#6B7280',
               }}
-              className={`px-2.5 py-1 text-[10px] font-bold rounded ${mapView === 'local' ? 'bg-white text-[#1A1A1A] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
             >
-              SMALL 5KM MAP
+              LOCAL 5KM
             </button>
           </div>
         </div>
-        <div className="flex items-center space-x-6">
-          <div className="flex items-center text-sm">
-            <span className="font-semibold text-gray-900">{MERCHANT_INFO.businessName}</span>
-            <span className="ml-2 text-gray-500">({MERCHANT_INFO.location})</span>
+
+        <div className="flex items-center gap-5">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold" style={{ color: '#F8F9FA' }}>{MERCHANT_INFO.businessName}</span>
+            <span className="text-sm" style={{ color: '#4B5563' }}>({MERCHANT_INFO.location})</span>
           </div>
-          <div className="hidden lg:flex items-center gap-2 text-[10px] font-mono text-gray-500 bg-gray-50 border border-gray-200 px-2 py-1 rounded">
-            <span className="w-2 h-2 rounded-full bg-[#00D1C1] animate-pulse" />
+          <div className="hidden lg:flex items-center gap-2 text-[10px] font-mono px-2 py-1 rounded" style={{ color: '#00D1C1', background: 'rgba(0,209,193,0.08)', border: '1px solid rgba(0,209,193,0.2)' }}>
+            <span className="w-2 h-2 rounded-full bg-[#00D1C1] animate-pulse" style={{ boxShadow: '0 0 6px #00D1C1' }} />
             <span>LIVE {now.toUTCString().split(' ')[4]} UTC</span>
           </div>
-          <div className="relative cursor-pointer hover:text-[#00D1C1] transition-colors text-gray-400">
+          <div className="relative cursor-pointer transition-colors" style={{ color: '#4B5563' }}>
             <Bell className="w-5 h-5 opacity-80" />
-            <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-[#FF4B4B] border-2 border-white rounded-full text-[8px] font-bold text-white flex items-center justify-center">
+            <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full text-[8px] font-bold text-white flex items-center justify-center border-2" style={{ background: '#FF4B4B', borderColor: '#111318' }}>
               {ALERTS.filter(a => a.status === 'pending').length}
             </span>
           </div>
@@ -140,55 +180,105 @@ export default function IntelligenceMap() {
 
       <div className="flex-1 min-h-0 flex relative">
         {/* Left Agent Panel */}
-        <aside className="w-[280px] min-w-[280px] bg-white border-r border-gray-200 flex flex-col z-20">
-          <div className="p-4 border-b border-gray-100 bg-gray-50/50">
-            <h2 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-1">Active Surveillance</h2>
-            <div className="flex items-center mt-2 text-[#00D1C1]">
-              <Activity className="w-3.5 h-3.5 mr-1.5" />
+        <aside className="w-[268px] min-w-[268px] flex flex-col z-20" style={{ background: '#111318', borderRight: '1px solid rgba(255,255,255,0.07)' }}>
+          <div className="p-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)', background: 'rgba(0,209,193,0.04)' }}>
+            <h2 className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#4B5563' }}>Active Surveillance</h2>
+            <div className="flex items-center gap-1.5" style={{ color: '#00D1C1' }}>
+              <Activity className="w-3.5 h-3.5" />
               <span className="text-xs font-semibold">4 Active Observers</span>
+              <motion.div
+                animate={{ opacity: [1, 0.3, 1] }}
+                transition={{ duration: 1.5, repeat: Infinity }}
+                className="ml-auto w-1.5 h-1.5 rounded-full"
+                style={{ background: '#00D1C1', boxShadow: '0 0 6px #00D1C1' }}
+              />
             </div>
           </div>
-          
-          <div className="flex-1 overflow-y-auto p-4 space-y-3">
-            {AGENTS.map(agent => {
-              const urgencyColor = agent.status === 'alert' ? 'bg-[#FF4B4B]' : agent.status === 'processing' ? 'bg-[#00D1C1]' : 'bg-gray-300';
-              const cardBg = agent.status === 'alert' ? 'bg-[#FFF5F5] border-[#FF4B4B]/20' : agent.status === 'processing' ? 'bg-white border-gray-200 shadow-sm' : 'bg-gray-50 border-gray-100 text-gray-500';
 
+          <div className="flex-1 overflow-y-auto p-3 space-y-3">
+            {AGENTS.map((agent, idx) => {
+              const isAlert = agent.status === 'alert';
+              const isProcessing = agent.status === 'processing';
               return (
-                <div key={agent.id} className={`border rounded-lg p-3 transition-all ${cardBg}`}>
+                <motion.div
+                  key={agent.id}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: idx * 0.07 }}
+                  className="rounded-lg p-3"
+                  style={{
+                    background: isAlert
+                      ? 'rgba(255,75,75,0.08)'
+                      : isProcessing
+                        ? 'rgba(0,209,193,0.06)'
+                        : 'rgba(255,255,255,0.03)',
+                    border: isAlert
+                      ? '1px solid rgba(255,75,75,0.25)'
+                      : isProcessing
+                        ? '1px solid rgba(0,209,193,0.2)'
+                        : '1px solid rgba(255,255,255,0.06)',
+                  }}
+                >
                   <div className="flex justify-between items-center mb-2">
-                    <span className="font-semibold text-sm">{agent.name}</span>
-                    <div className={`w-2 h-2 rounded-full ${urgencyColor} ${agent.status === 'processing' ? 'animate-pulse' : ''}`} />
+                    <span className="font-semibold text-sm" style={{ color: isAlert ? '#FF4B4B' : isProcessing ? '#00D1C1' : '#6B7280' }}>
+                      {agent.name}
+                    </span>
+                    <div
+                      className={`w-2 h-2 rounded-full ${isProcessing ? 'animate-pulse' : ''}`}
+                      style={{
+                        background: isProcessing ? '#00D1C1' : isAlert ? '#FF4B4B' : '#374151',
+                        boxShadow: isProcessing ? '0 0 6px #00D1C1' : isAlert ? '0 0 6px #FF4B4B' : 'none',
+                      }}
+                    />
                   </div>
-                  {agent.status === 'processing' && (
-                    <div className="text-[10px] text-gray-600 font-mono leading-relaxed bg-gray-50 border border-gray-100 p-2 rounded italic">
+                  {isProcessing && (
+                    <motion.div
+                      animate={{ opacity: [0.5, 1, 0.5] }}
+                      transition={{ duration: 2, repeat: Infinity }}
+                      className="text-[10px] font-mono leading-relaxed rounded p-2 italic"
+                      style={{ color: '#00D1C1', background: 'rgba(0,209,193,0.07)', border: '1px solid rgba(0,209,193,0.12)' }}
+                    >
                       &gt; {agent.statusText}
-                    </div>
+                    </motion.div>
                   )}
                   {agent.status === 'idle' && (
-                    <div className="text-[10px] text-gray-400 font-mono italic">
-                      IDLE - {agent.statusText}
+                    <div className="text-[10px] font-mono italic" style={{ color: '#374151' }}>
+                      IDLE — {agent.statusText}
                     </div>
                   )}
-                  {agent.status === 'alert' && (
-                    <div className="text-[10px] text-[#FF4B4B] font-bold font-mono">
-                      ALERT ACTIVE
-                    </div>
+                  {isAlert && (
+                    <motion.div
+                      animate={{ opacity: [1, 0.5, 1] }}
+                      transition={{ duration: 0.8, repeat: Infinity }}
+                      className="text-[10px] font-bold font-mono"
+                      style={{ color: '#FF4B4B' }}
+                    >
+                      ⚠ ALERT ACTIVE
+                    </motion.div>
                   )}
-                </div>
+                </motion.div>
               );
             })}
           </div>
         </aside>
 
         {/* Map Area */}
-        <main className="flex-1 min-w-0 relative bg-[#E2E8F0] z-10">
-          <div className="absolute top-4 left-4 z-[1000] bg-white/90 backdrop-blur border border-gray-200 rounded-md px-3 py-2 shadow-sm max-w-[520px]">
-            <p className="text-[11px] font-semibold text-gray-600">{mapMessage}</p>
+        <main className="flex-1 min-w-0 relative z-10" style={{ background: '#0A0D13' }}>
+          {/* Map Overlay Badge */}
+          <div className="absolute top-4 left-4 z-[1000] backdrop-blur rounded-md px-3 py-2" style={{ background: 'rgba(17,19,24,0.92)', border: '1px solid rgba(0,209,193,0.2)', maxWidth: 480, boxShadow: '0 4px 20px rgba(0,0,0,0.5)' }}>
+            <div className="flex items-center gap-2">
+              <Zap className="w-3 h-3" style={{ color: '#00D1C1' }} />
+              <p className="text-[11px] font-semibold" style={{ color: '#9CA3AF' }}>{mapMessage}</p>
+            </div>
             {mapView === 'local' && activeHotspot && (
-              <p className="text-[10px] mt-1 text-[#00A69A] font-semibold">
-                Detection: {activeHotspot.name} updated {Math.floor((hotspotIndex % 4) + 1)}s ago.
-              </p>
+              <motion.p
+                animate={{ opacity: [1, 0.6, 1] }}
+                transition={{ duration: 1.5, repeat: Infinity }}
+                className="text-[10px] mt-1 font-semibold"
+                style={{ color: '#00D1C1' }}
+              >
+                ◉ Detection: {activeHotspot.name} updated {Math.floor((hotspotIndex % 4) + 1)}s ago
+              </motion.p>
             )}
           </div>
 
@@ -200,13 +290,11 @@ export default function IntelligenceMap() {
               className="w-full h-full"
               zoomControl={false}
             >
-              <TileLayer
-                url="https://cartodb-basemaps-a.global.ssl.fastly.net/light_all/{z}/{x}/{y}{r}.png"
-              />
+              <TileLayer url="https://cartodb-basemaps-a.global.ssl.fastly.net/dark_all/{z}/{x}/{y}{r}.png" />
 
               <Marker position={[MERCHANT_INFO.coordinates.lat, MERCHANT_INFO.coordinates.lng]} icon={merchantIcon}>
-                <Popup className="bg-white text-gray-900 border border-gray-200">
-                  <div className="text-[#1A1A1A] font-bold text-xs uppercase tracking-tight">{MERCHANT_INFO.businessName}</div>
+                <Popup>
+                  <div className="font-bold text-xs uppercase tracking-tight" style={{ color: '#00D1C1' }}>{MERCHANT_INFO.businessName}</div>
                 </Popup>
               </Marker>
 
@@ -221,7 +309,6 @@ export default function IntelligenceMap() {
                       icon={createDotIcon(color)}
                       eventHandlers={{ click: () => setSelectedSignal(isActive ? null : signal.id) }}
                     />
-
                     {(isActive || signal.urgency === 'red') && (
                       <Polyline
                         positions={[
@@ -231,7 +318,7 @@ export default function IntelligenceMap() {
                         pathOptions={{
                           color,
                           weight: isActive ? 2 : 1,
-                          opacity: isActive ? 0.8 : 0.4,
+                          opacity: isActive ? 0.9 : 0.45,
                           dashArray: '5, 5'
                         }}
                       />
@@ -252,32 +339,22 @@ export default function IntelligenceMap() {
                     radius={scanRadius}
                     pathOptions={{ color: '#00D1C1', weight: 1, opacity: 0.45 }}
                   />
-
                   {localCompetitors.map(spot => (
-                    <Marker
-                      key={spot.id}
-                      position={[spot.coordinates.lat, spot.coordinates.lng]}
-                      icon={competitorIcon}
-                    >
+                    <Marker key={spot.id} position={[spot.coordinates.lat, spot.coordinates.lng]} icon={competitorIcon}>
                       <Popup>
                         <div className="text-xs">
-                          <div className="font-semibold text-[#1A1A1A]">{spot.name}</div>
-                          <div className="text-gray-500">{spot.type} • {spot.distance}km</div>
+                          <div className="font-semibold">{spot.name}</div>
+                          <div style={{ color: '#9CA3AF' }}>{spot.type} • {spot.distance}km</div>
                         </div>
                       </Popup>
                     </Marker>
                   ))}
-
                   {localCrowdSpots.map(spot => (
-                    <Marker
-                      key={spot.id}
-                      position={[spot.coordinates.lat, spot.coordinates.lng]}
-                      icon={crowdIcon}
-                    >
+                    <Marker key={spot.id} position={[spot.coordinates.lat, spot.coordinates.lng]} icon={crowdIcon}>
                       <Popup>
                         <div className="text-xs">
-                          <div className="font-semibold text-[#1A1A1A]">{spot.name}</div>
-                          <div className="text-gray-500">{spot.footTraffic} traffic • {spot.distance}km</div>
+                          <div className="font-semibold">{spot.name}</div>
+                          <div style={{ color: '#9CA3AF' }}>{spot.footTraffic} traffic • {spot.distance}km</div>
                         </div>
                       </Popup>
                     </Marker>
@@ -286,9 +363,9 @@ export default function IntelligenceMap() {
               )}
             </MapContainer>
           ) : (
-            <div className="h-full p-6 overflow-y-auto">
+            <div className="h-full p-5 overflow-y-auto">
               <div className="grid grid-cols-1 xl:grid-cols-[420px_1fr] gap-4 h-full">
-                <div className="h-[280px] rounded-xl overflow-hidden border border-gray-200 shadow-sm bg-white">
+                <div className="h-[280px] rounded-xl overflow-hidden" style={{ border: '1px solid rgba(0,209,193,0.2)', boxShadow: '0 0 20px rgba(0,209,193,0.1)' }}>
                   <MapContainer
                     key="local-small"
                     center={[MERCHANT_INFO.coordinates.lat, MERCHANT_INFO.coordinates.lng]}
@@ -296,18 +373,10 @@ export default function IntelligenceMap() {
                     className="w-full h-full"
                     zoomControl={false}
                   >
-                    <TileLayer url="https://cartodb-basemaps-a.global.ssl.fastly.net/light_all/{z}/{x}/{y}{r}.png" />
+                    <TileLayer url="https://cartodb-basemaps-a.global.ssl.fastly.net/dark_all/{z}/{x}/{y}{r}.png" />
                     <Marker position={[MERCHANT_INFO.coordinates.lat, MERCHANT_INFO.coordinates.lng]} icon={merchantIcon} />
-                    <Circle
-                      center={[MERCHANT_INFO.coordinates.lat, MERCHANT_INFO.coordinates.lng]}
-                      radius={5000}
-                      pathOptions={{ color: '#00D1C1', weight: 2, opacity: 0.7, dashArray: '4 6' }}
-                    />
-                    <Circle
-                      center={[MERCHANT_INFO.coordinates.lat, MERCHANT_INFO.coordinates.lng]}
-                      radius={scanRadius}
-                      pathOptions={{ color: '#00D1C1', weight: 1, opacity: 0.45 }}
-                    />
+                    <Circle center={[MERCHANT_INFO.coordinates.lat, MERCHANT_INFO.coordinates.lng]} radius={5000} pathOptions={{ color: '#00D1C1', weight: 2, opacity: 0.7, dashArray: '4 6' }} />
+                    <Circle center={[MERCHANT_INFO.coordinates.lat, MERCHANT_INFO.coordinates.lng]} radius={scanRadius} pathOptions={{ color: '#00D1C1', weight: 1, opacity: 0.45 }} />
                     {localCompetitors.map(spot => (
                       <Marker key={spot.id} position={[spot.coordinates.lat, spot.coordinates.lng]} icon={competitorIcon} />
                     ))}
@@ -317,38 +386,41 @@ export default function IntelligenceMap() {
                   </MapContainer>
                 </div>
 
-                <div className="bg-white border border-gray-200 rounded-xl p-4 overflow-y-auto">
+                <div className="rounded-xl p-4 overflow-y-auto" style={{ background: '#111318', border: '1px solid rgba(255,255,255,0.07)' }}>
                   <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-sm font-bold uppercase tracking-wider text-gray-500">5km Local Signals</h3>
-                    <div className="flex items-center rounded-md border border-gray-200 bg-gray-50 p-0.5">
-                      <button
-                        onClick={() => setLocalMapSize('large')}
-                        className="px-2 py-1 text-[10px] font-bold text-gray-500 hover:text-gray-700"
-                      >
-                        LARGE
-                      </button>
-                      <button
-                        onClick={() => setLocalMapSize('small')}
-                        className="px-2 py-1 text-[10px] font-bold bg-white rounded shadow-sm text-[#1A1A1A]"
-                      >
-                        SMALL
-                      </button>
+                    <h3 className="text-sm font-bold uppercase tracking-wider" style={{ color: '#4B5563' }}>5km Local Signals</h3>
+                    <div className="flex items-center rounded-md p-0.5" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                      <button onClick={() => setLocalMapSize('large')} className="px-2 py-1 text-[10px] font-bold transition-all" style={{ color: '#6B7280' }}>LARGE</button>
+                      <button onClick={() => setLocalMapSize('small')} className="px-2 py-1 text-[10px] font-bold rounded" style={{ background: 'rgba(0,209,193,0.15)', color: '#00D1C1' }}>SMALL</button>
                     </div>
                   </div>
-
                   <div className="space-y-2.5">
                     {LOCAL_COMPETITORS.map(item => (
-                      <div key={item.id} className={`border rounded-lg p-3 transition-colors ${activeHotspot?.id === item.id ? 'border-[#00D1C1]/40 bg-[#F0FBFA]' : 'border-gray-100'}`}>
+                      <div
+                        key={item.id}
+                        className="rounded-lg p-3 transition-all"
+                        style={{
+                          background: activeHotspot?.id === item.id ? 'rgba(0,209,193,0.07)' : 'rgba(255,255,255,0.03)',
+                          border: activeHotspot?.id === item.id ? '1px solid rgba(0,209,193,0.3)' : '1px solid rgba(255,255,255,0.06)',
+                        }}
+                      >
                         <div className="flex items-start justify-between gap-2">
                           <div>
-                            <p className="text-xs font-semibold text-[#1A1A1A]">{item.name}</p>
-                            <p className="text-[11px] text-gray-500">{item.type}</p>
+                            <p className="text-xs font-semibold" style={{ color: '#F8F9FA' }}>{item.name}</p>
+                            <p className="text-[11px]" style={{ color: '#6B7280' }}>{item.type}</p>
                           </div>
-                          <span className="text-[10px] font-mono text-gray-500">{item.distance}km</span>
+                          <span className="text-[10px] font-mono" style={{ color: '#4B5563' }}>{item.distance}km</span>
                         </div>
-                        <p className="text-[11px] text-gray-500 mt-1">{item.recentActivity || item.crowd || 'Monitoring activity.'}</p>
+                        <p className="text-[11px] mt-1" style={{ color: '#6B7280' }}>{item.recentActivity || item.crowd || 'Monitoring activity.'}</p>
                         {activeHotspot?.id === item.id && (
-                          <p className="text-[10px] mt-1 text-[#00A69A] font-bold">LIVE update detected</p>
+                          <motion.p
+                            animate={{ opacity: [1, 0.5, 1] }}
+                            transition={{ duration: 1, repeat: Infinity }}
+                            className="text-[10px] mt-1 font-bold"
+                            style={{ color: '#00D1C1' }}
+                          >
+                            ◉ LIVE update detected
+                          </motion.p>
                         )}
                       </div>
                     ))}
@@ -361,36 +433,34 @@ export default function IntelligenceMap() {
           {/* Signal Detail Overlay */}
           <AnimatePresence>
             {mapView === 'regional' && selectedSignal && (
-              <motion.div 
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 20 }}
-                className="absolute top-6 right-6 w-80 bg-white/95 backdrop-blur-xl border border-gray-200 rounded-lg shadow-xl z-[1000] overflow-hidden"
+              <motion.div
+                initial={{ opacity: 0, y: 20, scale: 0.97 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 20, scale: 0.97 }}
+                className="absolute top-6 right-6 w-80 rounded-xl z-[1000] overflow-hidden"
+                style={{ background: 'rgba(17,19,24,0.97)', border: '1px solid rgba(0,209,193,0.2)', boxShadow: '0 20px 60px rgba(0,0,0,0.7), 0 0 20px rgba(0,209,193,0.1)', backdropFilter: 'blur(20px)' }}
               >
                 {(() => {
                   const signal = WORLD_SIGNALS.find(s => s.id === selectedSignal)!;
-                  const colorMatch = { red: 'text-[#FF4B4B] border-[#FF4B4B]/20 bg-[#FFF5F5]', amber: 'text-[#FFB000] border-[#FFB000]/20 bg-[#FFF9F0]', teal: 'text-[#00D1C1] border-[#00D1C1]/20 bg-[#F0FBFA]' }[signal.urgency];
-                  
+                  const color = getUrgencyColor(signal.urgency);
                   return (
-                    <div className="p-5 relative text-[#1A1A1A]">
-                      <div className="text-[10px] font-bold uppercase tracking-widest text-[#00D1C1] mb-2">
+                    <div className="p-5">
+                      <div className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#00D1C1' }}>
                         {signal.type} Signal
                       </div>
-                      <div className={`text-xs font-bold mb-1 ${colorMatch.split(' ')[0]}`}>
+                      <div className="text-xs font-bold mb-1" style={{ color }}>
                         Origin: {signal.origin}
                       </div>
-                      <p className="text-gray-500 text-[10px] leading-relaxed mb-4">
+                      <p className="text-[11px] leading-relaxed mb-4" style={{ color: '#9CA3AF' }}>
                         {signal.summary}
                       </p>
-                      
-                      <div className="bg-gray-50 border border-gray-100 rounded-lg p-3 text-xs mb-4">
-                        <span className="text-gray-400 font-bold text-[10px] uppercase">Impacting: </span>
-                        <span className="font-mono text-gray-700">{signal.impact}</span>
+                      <div className="rounded-lg p-3 text-xs mb-4" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                        <span className="font-bold text-[10px] uppercase" style={{ color: '#4B5563' }}>Impacting: </span>
+                        <span className="font-mono" style={{ color: '#E5E7EB' }}>{signal.impact}</span>
                       </div>
-                      
-                      <div className="flex justify-between items-center pt-3 border-t border-gray-100">
-                        <span className="text-[10px] font-bold text-gray-400 uppercase">Agent: {signal.agentProcessing}</span>
-                        <Target className="w-4 h-4 text-gray-300" />
+                      <div className="flex justify-between items-center pt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+                        <span className="text-[10px] font-bold uppercase" style={{ color: '#4B5563' }}>Agent: {signal.agentProcessing}</span>
+                        <Target className="w-4 h-4" style={{ color: '#374151' }} />
                       </div>
                     </div>
                   );
@@ -399,18 +469,21 @@ export default function IntelligenceMap() {
             )}
           </AnimatePresence>
 
+          {/* Local map size toggle overlay */}
           {mapView === 'local' && (
-            <div className="absolute top-4 right-4 z-[1000] bg-white border border-gray-200 rounded-md p-1.5 shadow-sm">
-              <div className="flex items-center rounded-md border border-gray-200 bg-gray-50 p-0.5">
+            <div className="absolute top-4 right-4 z-[1000] rounded-md p-1" style={{ background: 'rgba(17,19,24,0.9)', border: '1px solid rgba(255,255,255,0.1)' }}>
+              <div className="flex items-center rounded p-0.5" style={{ background: 'rgba(255,255,255,0.04)' }}>
                 <button
                   onClick={() => setLocalMapSize('large')}
-                  className={`px-2.5 py-1 text-[10px] font-bold rounded ${localMapSize === 'large' ? 'bg-white text-[#1A1A1A] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                  className="px-2.5 py-1 text-[10px] font-bold rounded transition-all"
+                  style={{ background: localMapSize === 'large' ? 'rgba(0,209,193,0.15)' : 'transparent', color: localMapSize === 'large' ? '#00D1C1' : '#6B7280' }}
                 >
                   LARGE
                 </button>
                 <button
                   onClick={() => setLocalMapSize('small')}
-                  className={`px-2.5 py-1 text-[10px] font-bold rounded ${localMapSize === 'small' ? 'bg-white text-[#1A1A1A] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                  className="px-2.5 py-1 text-[10px] font-bold rounded transition-all"
+                  style={{ background: localMapSize === 'small' ? 'rgba(0,209,193,0.15)' : 'transparent', color: localMapSize === 'small' ? '#00D1C1' : '#6B7280' }}
                 >
                   SMALL
                 </button>
@@ -420,49 +493,77 @@ export default function IntelligenceMap() {
         </main>
       </div>
 
-      {/* Bottom Panel - Recommendations Strip */}
-      <div className="h-44 bg-white/95 backdrop-blur-md border-t border-gray-200 shrink-0 z-20 overflow-hidden flex flex-col">
-        <div className="p-2 border-b border-gray-100 flex justify-between items-center px-6">
-          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">PENDING ACTIONS ({ALERTS.length})</span>
-          <button className="text-[10px] text-[#00D1C1] font-bold hover:underline">VIEW ALL LOGS →</button>
+      {/* Bottom Panel - Pending Actions */}
+      <div className="shrink-0 z-20 flex flex-col" style={{ height: '11rem', background: '#111318', borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+        {/* Header row */}
+        <div className="flex-none flex items-center justify-between px-5 py-2.5" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+          <div className="flex items-center gap-2">
+            <motion.div
+              animate={{ opacity: [1, 0.4, 1] }}
+              transition={{ duration: 1.2, repeat: Infinity }}
+              className="w-1.5 h-1.5 rounded-full"
+              style={{ background: '#FF4B4B', boxShadow: '0 0 6px #FF4B4B' }}
+            />
+            <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#4B5563' }}>
+              PENDING ACTIONS ({ALERTS.length})
+            </span>
+          </div>
+          <button className="text-[10px] font-bold transition-colors hover:text-white" style={{ color: '#00D1C1' }}>VIEW ALL LOGS →</button>
         </div>
-        <div className="flex-1 overflow-x-auto p-4 flex gap-4 w-full">
-          {ALERTS.map(alert => {
-            const urgencyClass = {
-              red: 'border-[#FF4B4B]/20 bg-white text-[#FF4B4B]',
-              amber: 'border-[#FFB000]/20 bg-white text-[#FFB000]',
-              green: 'border-[#00D1C1]/20 bg-white text-[#00D1C1]'
-            }[alert.urgency];
 
-            const badgeBg = {
-              red: 'bg-[#FFF5F5]',
-              amber: 'bg-[#FFF9F0]',
-              green: 'bg-[#F0FBFA]'
-            }[alert.urgency];
+        {/* Scrollable cards row */}
+        <div className="flex-1 overflow-x-auto overflow-y-hidden mm-scroll px-4 py-3 flex gap-3 items-stretch min-h-0">
+          {ALERTS.map((alert, idx) => {
+            const urgencyColor = alert.urgency === 'red' ? '#FF4B4B' : alert.urgency === 'amber' ? '#FFB000' : '#00D1C1';
+            const bgColor = alert.urgency === 'red' ? 'rgba(255,75,75,0.06)' : alert.urgency === 'amber' ? 'rgba(255,176,0,0.06)' : 'rgba(0,209,193,0.05)';
+            const borderColor = alert.urgency === 'red' ? 'rgba(255,75,75,0.25)' : alert.urgency === 'amber' ? 'rgba(255,176,0,0.25)' : 'rgba(0,209,193,0.2)';
+            const isSelected = selectedAlert === alert.id;
 
             return (
-              <div
-                key={alert.id} 
-                className={`flex-shrink-0 min-w-[280px] border ${urgencyClass} rounded-xl p-3 cursor-pointer flex flex-col justify-between shadow-sm transition-shadow hover:shadow-md ${selectedAlert === alert.id ? 'ring-2 ring-[#00D1C1]/30' : ''}`}
-                onClick={() => setSelectedAlert(alert.id)}
+              <motion.div
+                key={alert.id}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: idx * 0.05 }}
+                className="flex-shrink-0 flex flex-col justify-between cursor-pointer rounded-xl p-3 transition-all"
+                style={{
+                  width: 272,
+                  background: isSelected ? `rgba(0,209,193,0.08)` : bgColor,
+                  border: `1px solid ${isSelected ? 'rgba(0,209,193,0.4)' : borderColor}`,
+                  boxShadow: isSelected ? '0 0 16px rgba(0,209,193,0.15)' : 'none',
+                }}
+                onClick={() => setSelectedAlert(alert.id === selectedAlert ? null : alert.id)}
               >
                 <div>
                   <div className="flex justify-between items-start mb-2">
-                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${badgeBg}`}>
+                    <span
+                      className="text-[10px] font-bold px-1.5 py-0.5 rounded"
+                      style={{ background: bgColor, color: urgencyColor, border: `1px solid ${borderColor}` }}
+                    >
                       {alert.agent.split(' ')[0].toUpperCase()}
                     </span>
-                    <span className="text-[10px] font-mono text-gray-400">{alert.time}</span>
+                    <span className="text-[10px] font-mono" style={{ color: '#4B5563' }}>{alert.time}</span>
                   </div>
-                  <h4 className="text-xs font-bold leading-tight mb-1 text-[#1A1A1A]">{alert.headline}</h4>
-                  <p className="text-[10px] text-gray-500 line-clamp-2">{alert.detail}</p>
+                  <h4 className="text-xs font-bold leading-tight mb-1" style={{ color: '#F8F9FA' }}>{alert.headline}</h4>
+                  <p className="text-[10px] line-clamp-2" style={{ color: '#6B7280' }}>{alert.detail}</p>
                 </div>
                 {alert.status === 'pending' && (
-                  <div className="mt-3 flex gap-2">
-                    <button className={`flex-1 py-1.5 text-white text-[10px] border-0 font-bold rounded uppercase ${alert.urgency === 'red' ? 'bg-[#FF4B4B]' : alert.urgency === 'amber' ? 'bg-gray-900' : 'bg-[#00D1C1]'}`}>Review</button>
-                    <button className="flex-1 py-1.5 border border-gray-200 text-gray-500 text-[10px] font-bold rounded uppercase hover:bg-gray-50">Dismiss</button>
+                  <div className="mt-2.5 flex gap-2">
+                    <button
+                      className="flex-1 py-1 text-white text-[10px] font-bold rounded uppercase transition-opacity hover:opacity-90"
+                      style={{ background: urgencyColor }}
+                    >
+                      Review
+                    </button>
+                    <button
+                      className="flex-1 py-1 text-[10px] font-bold rounded uppercase transition-all"
+                      style={{ color: '#6B7280', border: '1px solid rgba(255,255,255,0.1)', background: 'transparent' }}
+                    >
+                      Dismiss
+                    </button>
                   </div>
                 )}
-              </div>
+              </motion.div>
             );
           })}
         </div>
