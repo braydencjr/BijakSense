@@ -1,0 +1,6 @@
+{
+  "name": "MerchantMind",
+  "description": "An AI co-pilot for Southeast Asian SME merchants that watches live world signals and translates them into plain-language business decisions.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
