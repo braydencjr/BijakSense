@@ -1,5 +1,5 @@
 import React from 'react';
-import { ALERTS, WORLD_SIGNALS, INGREDIENTS, MERCHANT_INFO } from '../data/mock';
+import { INGREDIENTS, MERCHANT_INFO } from '../data/mock';
 import {
   AlertTriangle, TrendingUp, Package, Sparkles, ArrowRight,
   CheckCircle2, Zap, BarChart2, ShieldAlert,
@@ -51,16 +51,53 @@ function urgencyAccent(urgency: string) {
 }
 
 export default function Dashboard() {
-  const pendingAlerts       = ALERTS.filter(a => a.status === 'pending');
+  const [liveRecs, setLiveRecs] = React.useState<any[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [backendError, setBackendError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    let mounted = true;
+
+    async function loadLiveRecommendations() {
+      try {
+        if (mounted) setLoading(true);
+        const res = await fetch('http://localhost:8000/api/recommendations?status=all');
+        if (!res.ok) throw new Error(`Backend returned ${res.status}`);
+        const data = await res.json();
+        if (mounted) {
+          setLiveRecs(Array.isArray(data) ? data : []);
+          setBackendError(null);
+        }
+      } catch (error) {
+        if (mounted) {
+          setLiveRecs([]);
+          setBackendError(error instanceof Error ? error.message : 'Failed to fetch recommendations');
+        }
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    }
+
+    loadLiveRecommendations();
+    const refresh = setInterval(loadLiveRecommendations, 20000);
+    return () => {
+      mounted = false;
+      clearInterval(refresh);
+    };
+  }, []);
+
+  const pendingAlerts = liveRecs.filter((a) => a.status === 'pending');
   const criticalIngredients = INGREDIENTS.filter(i => i.alert || i.stockDays <= i.reorderPoint).slice(0, 3);
-  const topSignals          = WORLD_SIGNALS.slice(0, 3);
+  const topSignals = liveRecs
+    .filter((rec) => rec.agent?.toLowerCase().includes('market'))
+    .slice(0, 3);
 
   const kpis = [
     {
       icon: <Zap className="w-4 h-4" />,
       label: 'Decisions Today',
       value: String(pendingAlerts.length),
-      sub: 'High-signal actions ready',
+      sub: loading ? 'Refreshing live recommendations...' : 'High-signal actions ready',
       accent: T.teal,
       dim: T.tealDim,
     },
@@ -76,7 +113,7 @@ export default function Dashboard() {
       icon: <BarChart2 className="w-4 h-4" />,
       label: 'Demand Opportunity',
       value: '+38%',
-      sub: 'Matcha search lift in your area',
+      sub: topSignals[0]?.headline || 'Watching current demand shifts',
       accent: T.teal,
       dim: T.tealDim,
     },
@@ -116,8 +153,13 @@ export default function Dashboard() {
               Good morning, {MERCHANT_INFO.name} 👋
             </h1>
             <p className="mt-1.5 text-base max-w-xl" style={{ color: T.secondary }}>
-              {topSignals.length} new world signals scanned · {pendingAlerts.length} actions awaiting your decision
+              {topSignals.length} live signals loaded · {pendingAlerts.length} actions awaiting your decision
             </p>
+            {backendError && (
+              <p className="mt-2 text-xs" style={{ color: T.ruby }}>
+                Backend fetch error: {backendError}
+              </p>
+            )}
           </div>
 
           <Link
@@ -215,7 +257,7 @@ export default function Dashboard() {
               </div>
 
               <div className="space-y-3">
-                {pendingAlerts.map((alert, idx) => {
+                {pendingAlerts.slice(0, 9).map((alert, idx) => {
                   const acc = urgencyAccent(alert.urgency);
                   return (
                     <motion.div
@@ -247,7 +289,7 @@ export default function Dashboard() {
                           </span>
                         </div>
                         <span className="text-xs shrink-0 font-mono" style={{ color: T.muted }}>
-                          {alert.time}
+                          {alert.time || new Date(alert.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </span>
                       </div>
 
@@ -261,7 +303,7 @@ export default function Dashboard() {
 
                       {/* Detail */}
                       <p className="text-sm mt-1 leading-relaxed" style={{ color: T.secondary }}>
-                        {alert.detail}
+                        {alert.detail || alert.body}
                       </p>
 
                       {/* Footer */}
@@ -273,11 +315,16 @@ export default function Dashboard() {
                           <Sparkles className="w-3 h-3" style={{ color: T.teal }} />
                           AI confidence: high
                         </span>
-                        <span>Est. impact: RM 120 – RM 420</span>
+                        <span>{alert.structured_data?.pin_place_name ? `Location: ${alert.structured_data.pin_place_name}` : 'Location context pending'}</span>
                       </div>
                     </motion.div>
                   );
                 })}
+                {pendingAlerts.length === 0 && !loading && (
+                  <div className="rounded-xl p-4 text-sm" style={{ background: T.s2, border: `1px solid ${T.border}` }}>
+                    No pending backend recommendations yet.
+                  </div>
+                )}
               </div>
             </div>
 
@@ -295,14 +342,12 @@ export default function Dashboard() {
                 <div className="space-y-3.5">
                   {topSignals.map(signal => {
                     const icon =
-                      signal.type === 'Disruption' ? <AlertTriangle className="w-3.5 h-3.5" style={{ color: T.ruby }}  /> :
-                      signal.type === 'Commodity'  ? <Package       className="w-3.5 h-3.5" style={{ color: T.amber }} /> :
-                      signal.type === 'Trend'      ? <TrendingUp    className="w-3.5 h-3.5" style={{ color: T.teal }}  /> :
-                                                     <Sparkles      className="w-3.5 h-3.5" style={{ color: T.teal }}  />;
+                      signal.urgency === 'red' ? <AlertTriangle className="w-3.5 h-3.5" style={{ color: T.ruby }}  /> :
+                      signal.urgency === 'amber' ? <Package className="w-3.5 h-3.5" style={{ color: T.amber }} /> :
+                      signal.urgency === 'watch' ? <TrendingUp className="w-3.5 h-3.5" style={{ color: T.teal }} /> :
+                      <Sparkles className="w-3.5 h-3.5" style={{ color: T.teal }} />;
 
-                    const dotColor =
-                      signal.type === 'Disruption' ? T.ruby :
-                      signal.type === 'Commodity'  ? T.amber : T.teal;
+                    const dotColor = signal.urgency === 'red' ? T.ruby : signal.urgency === 'amber' ? T.amber : T.teal;
 
                     return (
                       <div key={signal.id} className="flex items-start gap-3">
@@ -314,19 +359,22 @@ export default function Dashboard() {
                         </div>
                         <div className="min-w-0">
                           <p className="text-sm font-medium leading-snug" style={{ color: T.primary }}>
-                            {signal.summary}
+                            {signal.headline}
                           </p>
                           <p className="text-xs mt-0.5 flex items-center gap-1" style={{ color: T.muted }}>
                             <span
                               className="inline-block w-1.5 h-1.5 rounded-full"
                               style={{ background: dotColor }}
                             />
-                            {signal.origin}
+                            {signal.structured_data?.pin_place_name || signal.agent}
                           </p>
                         </div>
                       </div>
                     );
                   })}
+                  {topSignals.length === 0 && !loading && (
+                    <p className="text-sm" style={{ color: T.secondary }}>No live signals available yet.</p>
+                  )}
                 </div>
               </div>
 
@@ -341,9 +389,9 @@ export default function Dashboard() {
 
                 <div className="space-y-3">
                   {[
-                    'Ingested 128 regional signals in the last 6 hours',
-                    'Linked global disruptions to your ingredient costs',
-                    'Converted findings into merchant-ready actions',
+                    `${liveRecs.length} recommendations in live history`,
+                    `${pendingAlerts.length} pending actions ready now`,
+                    'Regional + local map now reads backend recommendations',
                   ].map((line, i) => (
                     <motion.div
                       key={i}
