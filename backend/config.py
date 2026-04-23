@@ -7,10 +7,13 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    # Z.AI (GLM) — OpenAI-compatible
+    # Ilmu GLM — Anthropic-compatible endpoint
     zai_api_key: str = ""
-    zai_base_url: str = "https://open.bigmodel.cn/api/paas/v4/"
-    zai_model: str = "glm-4.5"
+    zai_base_url: str = "https://api.ilmu.ai/anthropic"
+    zai_model: str = "ilmu-glm-5.1"
+
+    # Google Gemini — fallback for chatbot
+    gemini_api_key: str = ""
 
     # Search & Map Integrations
     tavily_api_key: str = ""

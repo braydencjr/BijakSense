@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Activity, Send } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { GoogleGenAI } from '@google/genai';
 import Markdown from 'react-markdown';
 import { motion } from 'motion/react';
 
@@ -55,28 +54,22 @@ export default function Chat() {
     setIsLoading(true);
 
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const history = messages.map(m => ({ role: m.role, content: m.content }));
 
-      const systemInstruction = `You are MerchantMind, an AI co-pilot for SME merchants in Southeast Asia. You watch world signals (supply chain, weather, local trends) to give business advice. The merchant is Siti, running "Siti's Bubble Tea" in Petaling Jaya, Malaysia. Respond concisely, professionally, and use formatting. Keep answers strictly business-focused, practical, and data-driven.`;
-
-      const historyText = messages.map(m => `${m.role === 'user' ? 'Merchant' : 'MerchantMind'}: ${m.content}`).join('\\n');
-
-      const response = await ai.models.generateContent({
-        model: "gemini-3.1-pro-preview",
-        contents: `${historyText}\\nMerchant: ${textToSend}`,
-        config: {
-          systemInstruction,
-          temperature: 0.3
-        }
+      const res = await fetch('http://localhost:8000/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: textToSend, history }),
       });
 
-      const replyContent = response.text || "Sorry, I couldn't process that request.";
+      if (!res.ok) throw new Error(`API error: ${res.status}`);
+      const data = await res.json();
 
       setMessages(prev => [...prev, {
         id: Date.now().toString() + 'r',
         role: 'system',
-        agent: "Core Intelligence",
-        content: replyContent
+        agent: data.agent || "Core Intelligence",
+        content: data.reply || "Sorry, I couldn't process that request."
       }]);
 
     } catch (err) {

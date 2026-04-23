@@ -1,11 +1,61 @@
 import React from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Polyline, Circle } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Polyline, Circle, useMap } from 'react-leaflet';
 import { motion, AnimatePresence } from 'motion/react';
 import { Bell, Activity, Target, Zap } from 'lucide-react';
-import { WORLD_SIGNALS, MERCHANT_INFO, AGENTS, ALERTS, LOCAL_COMPETITORS } from '../data/mock';
+import { MERCHANT_INFO, AGENTS } from '../data/mock';
+import { getCached, setCache, isCached } from '../lib/cache';
 import L from 'leaflet';
 
-export default function IntelligenceMap() {
+interface RegionalSignal {
+  id: string;
+  type: string;
+  category: string;
+  origin: string;
+  coords: { lat: number; lng: number };
+  summary: string;
+  impact: string;
+  urgency: string;
+  agent: string;
+}
+
+interface LocalSignal {
+  id: string;
+  name: string;
+  type: string;
+  category: string;
+  distance: number;
+  coords: { lat: number; lng: number };
+  description: string;
+  urgency: string;
+}
+
+interface IntelligenceMapProps {
+  isActive?: boolean;
+}
+
+function MapAutoResize({ isActive }: { isActive: boolean }) {
+  const map = useMap();
+
+  React.useEffect(() => {
+    if (!isActive) return;
+
+    const timeoutId = window.setTimeout(() => {
+      map.invalidateSize();
+    }, 120);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [isActive, map]);
+
+  return null;
+}
+
+const API = 'http://localhost:8000';
+const INSIGHTS_CACHE_KEY = 'insights:v3';
+const MAP_ALERTS_CACHE_KEY = 'map:alerts:v3';
+const MAP_REGIONAL_CACHE_KEY = 'map:regional-signals:v1';
+const MAP_LOCAL_CACHE_KEY = 'map:local-signals:v1';
+
+export default function IntelligenceMap({ isActive = true }: IntelligenceMapProps) {
   const [selectedSignal, setSelectedSignal] = React.useState<string | null>(null);
   const [selectedAlert, setSelectedAlert] = React.useState<string | null>(null);
   const [mapView, setMapView] = React.useState<'regional' | 'local'>('regional');
@@ -14,6 +64,85 @@ export default function IntelligenceMap() {
   const [scanRadius, setScanRadius] = React.useState(4600);
   const [hotspotIndex, setHotspotIndex] = React.useState(0);
   const [tick, setTick] = React.useState(0);
+  const [regionalSignals, setRegionalSignals] = React.useState<RegionalSignal[]>(() => getCached<RegionalSignal[]>(MAP_REGIONAL_CACHE_KEY) || []);
+  const [localSignals, setLocalSignals] = React.useState<LocalSignal[]>(() => getCached<LocalSignal[]>(MAP_LOCAL_CACHE_KEY) || []);
+  const [alerts, setAlerts] = React.useState<any[]>(() => (
+    getCached<any[]>(MAP_ALERTS_CACHE_KEY) ||
+    getCached<any[]>(INSIGHTS_CACHE_KEY) ||
+    []
+  ));
+  const [signalsLoading, setSignalsLoading] = React.useState(
+    !(isCached(MAP_REGIONAL_CACHE_KEY) && isCached(MAP_LOCAL_CACHE_KEY))
+  );
+  const [hasInitialized, setHasInitialized] = React.useState(
+    isActive ||
+    isCached(MAP_REGIONAL_CACHE_KEY) ||
+    isCached(MAP_LOCAL_CACHE_KEY) ||
+    isCached(MAP_ALERTS_CACHE_KEY) ||
+    isCached(INSIGHTS_CACHE_KEY)
+  );
+
+  React.useEffect(() => {
+    if (isActive) setHasInitialized(true);
+  }, [isActive]);
+
+  // Fetch signals from backend (instant — mock data)
+  React.useEffect(() => {
+    if (!hasInitialized) return;
+
+    async function loadSignals() {
+      if (isCached(MAP_REGIONAL_CACHE_KEY) && isCached(MAP_LOCAL_CACHE_KEY)) {
+        setSignalsLoading(false);
+        return;
+      }
+
+      try {
+        setSignalsLoading(true);
+        const [regRes, localRes] = await Promise.all([
+          fetch(`${API}/api/signals/regional`),
+          fetch(`${API}/api/signals/local`),
+        ]);
+        const regData = await regRes.json();
+        const localData = await localRes.json();
+        const regional = Array.isArray(regData) ? regData : [];
+        const local = Array.isArray(localData) ? localData : [];
+        setRegionalSignals(regional);
+        setLocalSignals(local);
+        setCache(MAP_REGIONAL_CACHE_KEY, regional, { ttlMs: null });
+        setCache(MAP_LOCAL_CACHE_KEY, local, { ttlMs: null });
+      } catch (e) {
+        console.error('Failed to fetch signals', e);
+      } finally {
+        setSignalsLoading(false);
+      }
+    }
+    loadSignals();
+  }, [hasInitialized]);
+
+  // Fetch AI insights separately (slow — calls Gemini)
+  React.useEffect(() => {
+    if (!hasInitialized) return;
+
+    async function loadInsights() {
+      const cachedAlerts = getCached<any[]>(MAP_ALERTS_CACHE_KEY) || getCached<any[]>(INSIGHTS_CACHE_KEY);
+      if (cachedAlerts) {
+        setAlerts(cachedAlerts);
+        setCache(MAP_ALERTS_CACHE_KEY, cachedAlerts, { ttlMs: null });
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API}/api/insights`);
+        const data = await res.json();
+        const nextAlerts = Array.isArray(data.insights) ? data.insights : [];
+        setAlerts(nextAlerts);
+        setCache(MAP_ALERTS_CACHE_KEY, nextAlerts, { ttlMs: null });
+      } catch (e) {
+        console.error('Failed to fetch insights', e);
+      }
+    }
+    loadInsights();
+  }, [hasInitialized]);
 
   const getUrgencyColor = (urgency: string) => {
     if (urgency === 'red') return '#ef4444';
@@ -55,12 +184,14 @@ export default function IntelligenceMap() {
       ? 'LOCAL 5KM — Full view of competitors, businesses & nearby crowd signals.'
       : 'LOCAL 5KM — Compact snapshot for quick competitor awareness.';
 
-  const localCompetitors = LOCAL_COMPETITORS.filter(item => item.type !== 'Shopping Center');
-  const localCrowdSpots = LOCAL_COMPETITORS.filter(item => item.type === 'Shopping Center');
-  const localHotspots = [...localCompetitors, ...localCrowdSpots];
-  const activeHotspot = localHotspots[hotspotIndex % localHotspots.length];
+  const localCompetitors = localSignals.filter(s => s.type === 'competitor');
+  const localOpportunities = localSignals.filter(s => s.type === 'opportunity');
+  const localHotspots = [...localCompetitors, ...localOpportunities];
+  const activeHotspot = localHotspots[hotspotIndex % Math.max(localHotspots.length, 1)];
 
   React.useEffect(() => {
+    if (!isActive) return;
+
     const clockInterval = setInterval(() => setNow(new Date()), 1000);
     const scanInterval = setInterval(() => {
       setScanRadius(prev => (prev >= 5000 ? 4200 : prev + 120));
@@ -76,7 +207,7 @@ export default function IntelligenceMap() {
       clearInterval(hotspotInterval);
       clearInterval(tickInterval);
     };
-  }, [localHotspots.length]);
+  }, [isActive, localHotspots.length]);
 
   return (
     <div className="flex-1 min-h-0 flex flex-col relative overflow-hidden" style={{ background: '#0D0D0D', color: '#F8F9FA' }}>
@@ -109,7 +240,6 @@ export default function IntelligenceMap() {
         .mm-competitor-dot { animation: mmPulse 2.1s ease-in-out infinite; }
         .mm-crowd-dot { animation: mmPulse 1.4s ease-in-out infinite; }
 
-        /* Dark leaflet override */
         .leaflet-container { background: #111318 !important; }
         .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(0.85) saturate(0.8); }
         .leaflet-popup-content-wrapper {
@@ -122,7 +252,6 @@ export default function IntelligenceMap() {
         .leaflet-popup-tip { background: #1A1F2E !important; }
         .leaflet-popup-close-button { color: #6B7280 !important; }
 
-        /* Scrollbar for bottom panel */
         .mm-scroll::-webkit-scrollbar { height: 4px; }
         .mm-scroll::-webkit-scrollbar-track { background: rgba(255,255,255,0.03); }
         .mm-scroll::-webkit-scrollbar-thumb { background: rgba(0,209,193,0.3); border-radius: 2px; }
@@ -172,7 +301,7 @@ export default function IntelligenceMap() {
           <div className="relative cursor-pointer transition-colors" style={{ color: '#4B5563' }}>
             <Bell className="w-5 h-5 opacity-80" />
             <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full text-[8px] font-bold text-white flex items-center justify-center border-2" style={{ background: '#FF4B4B', borderColor: '#111318' }}>
-              {ALERTS.filter(a => a.status === 'pending').length}
+              {alerts.length}
             </span>
           </div>
         </div>
@@ -290,6 +419,7 @@ export default function IntelligenceMap() {
               className="w-full h-full"
               zoomControl={false}
             >
+              <MapAutoResize isActive={isActive} />
               <TileLayer url="https://cartodb-basemaps-a.global.ssl.fastly.net/dark_all/{z}/{x}/{y}{r}.png" />
 
               <Marker position={[MERCHANT_INFO.coordinates.lat, MERCHANT_INFO.coordinates.lng]} icon={merchantIcon}>
@@ -298,7 +428,8 @@ export default function IntelligenceMap() {
                 </Popup>
               </Marker>
 
-              {mapView === 'regional' && WORLD_SIGNALS.map(signal => {
+              {/* Regional signal markers */}
+              {mapView === 'regional' && regionalSignals.map(signal => {
                 const color = getUrgencyColor(signal.urgency);
                 const isActive = selectedSignal === signal.id;
 
@@ -327,6 +458,7 @@ export default function IntelligenceMap() {
                 );
               })}
 
+              {/* Local 5km signal markers */}
               {mapView === 'local' && (
                 <>
                   <Circle
@@ -340,21 +472,23 @@ export default function IntelligenceMap() {
                     pathOptions={{ color: '#00D1C1', weight: 1, opacity: 0.45 }}
                   />
                   {localCompetitors.map(spot => (
-                    <Marker key={spot.id} position={[spot.coordinates.lat, spot.coordinates.lng]} icon={competitorIcon}>
+                    <Marker key={spot.id} position={[spot.coords.lat, spot.coords.lng]} icon={competitorIcon}>
                       <Popup>
                         <div className="text-xs">
                           <div className="font-semibold">{spot.name}</div>
-                          <div style={{ color: '#9CA3AF' }}>{spot.type} • {spot.distance}km</div>
+                          <div style={{ color: '#9CA3AF' }}>{spot.category} • {spot.distance}km</div>
+                          <div style={{ color: '#6B7280', fontSize: 11 }}>{spot.description}</div>
                         </div>
                       </Popup>
                     </Marker>
                   ))}
-                  {localCrowdSpots.map(spot => (
-                    <Marker key={spot.id} position={[spot.coordinates.lat, spot.coordinates.lng]} icon={crowdIcon}>
+                  {localOpportunities.map(spot => (
+                    <Marker key={spot.id} position={[spot.coords.lat, spot.coords.lng]} icon={crowdIcon}>
                       <Popup>
                         <div className="text-xs">
                           <div className="font-semibold">{spot.name}</div>
-                          <div style={{ color: '#9CA3AF' }}>{spot.footTraffic} traffic • {spot.distance}km</div>
+                          <div style={{ color: '#9CA3AF' }}>{spot.category} • {spot.distance}km</div>
+                          <div style={{ color: '#6B7280', fontSize: 11 }}>{spot.description}</div>
                         </div>
                       </Popup>
                     </Marker>
@@ -363,6 +497,7 @@ export default function IntelligenceMap() {
               )}
             </MapContainer>
           ) : (
+            /* Small map view */
             <div className="h-full p-5 overflow-y-auto">
               <div className="grid grid-cols-1 xl:grid-cols-[420px_1fr] gap-4 h-full">
                 <div className="h-[280px] rounded-xl overflow-hidden" style={{ border: '1px solid rgba(0,209,193,0.2)', boxShadow: '0 0 20px rgba(0,209,193,0.1)' }}>
@@ -373,15 +508,16 @@ export default function IntelligenceMap() {
                     className="w-full h-full"
                     zoomControl={false}
                   >
+                    <MapAutoResize isActive={isActive} />
                     <TileLayer url="https://cartodb-basemaps-a.global.ssl.fastly.net/dark_all/{z}/{x}/{y}{r}.png" />
                     <Marker position={[MERCHANT_INFO.coordinates.lat, MERCHANT_INFO.coordinates.lng]} icon={merchantIcon} />
                     <Circle center={[MERCHANT_INFO.coordinates.lat, MERCHANT_INFO.coordinates.lng]} radius={5000} pathOptions={{ color: '#00D1C1', weight: 2, opacity: 0.7, dashArray: '4 6' }} />
                     <Circle center={[MERCHANT_INFO.coordinates.lat, MERCHANT_INFO.coordinates.lng]} radius={scanRadius} pathOptions={{ color: '#00D1C1', weight: 1, opacity: 0.45 }} />
                     {localCompetitors.map(spot => (
-                      <Marker key={spot.id} position={[spot.coordinates.lat, spot.coordinates.lng]} icon={competitorIcon} />
+                      <Marker key={spot.id} position={[spot.coords.lat, spot.coords.lng]} icon={competitorIcon} />
                     ))}
-                    {localCrowdSpots.map(spot => (
-                      <Marker key={spot.id} position={[spot.coordinates.lat, spot.coordinates.lng]} icon={crowdIcon} />
+                    {localOpportunities.map(spot => (
+                      <Marker key={spot.id} position={[spot.coords.lat, spot.coords.lng]} icon={crowdIcon} />
                     ))}
                   </MapContainer>
                 </div>
@@ -395,7 +531,7 @@ export default function IntelligenceMap() {
                     </div>
                   </div>
                   <div className="space-y-2.5">
-                    {LOCAL_COMPETITORS.map(item => (
+                    {localSignals.map(item => (
                       <div
                         key={item.id}
                         className="rounded-lg p-3 transition-all"
@@ -407,11 +543,11 @@ export default function IntelligenceMap() {
                         <div className="flex items-start justify-between gap-2">
                           <div>
                             <p className="text-xs font-semibold" style={{ color: '#F8F9FA' }}>{item.name}</p>
-                            <p className="text-[11px]" style={{ color: '#6B7280' }}>{item.type}</p>
+                            <p className="text-[11px]" style={{ color: '#6B7280' }}>{item.type === 'competitor' ? item.category : item.category}</p>
                           </div>
                           <span className="text-[10px] font-mono" style={{ color: '#4B5563' }}>{item.distance}km</span>
                         </div>
-                        <p className="text-[11px] mt-1" style={{ color: '#6B7280' }}>{item.recentActivity || item.crowd || 'Monitoring activity.'}</p>
+                        <p className="text-[11px] mt-1" style={{ color: '#6B7280' }}>{item.description}</p>
                         {activeHotspot?.id === item.id && (
                           <motion.p
                             animate={{ opacity: [1, 0.5, 1] }}
@@ -441,7 +577,8 @@ export default function IntelligenceMap() {
                 style={{ background: 'rgba(17,19,24,0.97)', border: '1px solid rgba(0,209,193,0.2)', boxShadow: '0 20px 60px rgba(0,0,0,0.7), 0 0 20px rgba(0,209,193,0.1)', backdropFilter: 'blur(20px)' }}
               >
                 {(() => {
-                  const signal = WORLD_SIGNALS.find(s => s.id === selectedSignal)!;
+                  const signal = regionalSignals.find(s => s.id === selectedSignal);
+                  if (!signal) return null;
                   const color = getUrgencyColor(signal.urgency);
                   return (
                     <div className="p-5">
@@ -459,7 +596,7 @@ export default function IntelligenceMap() {
                         <span className="font-mono" style={{ color: '#E5E7EB' }}>{signal.impact}</span>
                       </div>
                       <div className="flex justify-between items-center pt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
-                        <span className="text-[10px] font-bold uppercase" style={{ color: '#4B5563' }}>Agent: {signal.agentProcessing}</span>
+                        <span className="text-[10px] font-bold uppercase" style={{ color: '#4B5563' }}>Agent: {signal.agent}</span>
                         <Target className="w-4 h-4" style={{ color: '#374151' }} />
                       </div>
                     </div>
@@ -493,9 +630,8 @@ export default function IntelligenceMap() {
         </main>
       </div>
 
-      {/* Bottom Panel - Pending Actions */}
+      {/* Bottom Panel - AI Insights as Pending Actions */}
       <div className="shrink-0 z-20 flex flex-col" style={{ height: '11rem', background: '#111318', borderTop: '1px solid rgba(255,255,255,0.07)' }}>
-        {/* Header row */}
         <div className="flex-none flex items-center justify-between px-5 py-2.5" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
           <div className="flex items-center gap-2">
             <motion.div
@@ -505,15 +641,14 @@ export default function IntelligenceMap() {
               style={{ background: '#FF4B4B', boxShadow: '0 0 6px #FF4B4B' }}
             />
             <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#4B5563' }}>
-              PENDING ACTIONS ({ALERTS.length})
+              AI INSIGHTS ({alerts.length})
             </span>
           </div>
           <button className="text-[10px] font-bold transition-colors hover:text-white" style={{ color: '#00D1C1' }}>VIEW ALL LOGS →</button>
         </div>
 
-        {/* Scrollable cards row */}
         <div className="flex-1 overflow-x-auto overflow-y-hidden mm-scroll px-4 py-3 flex gap-3 items-stretch min-h-0">
-          {ALERTS.map((alert, idx) => {
+          {alerts.map((alert: any, idx: number) => {
             const urgencyColor = alert.urgency === 'red' ? '#FF4B4B' : alert.urgency === 'amber' ? '#FFB000' : '#00D1C1';
             const bgColor = alert.urgency === 'red' ? 'rgba(255,75,75,0.06)' : alert.urgency === 'amber' ? 'rgba(255,176,0,0.06)' : 'rgba(0,209,193,0.05)';
             const borderColor = alert.urgency === 'red' ? 'rgba(255,75,75,0.25)' : alert.urgency === 'amber' ? 'rgba(255,176,0,0.25)' : 'rgba(0,209,193,0.2)';
@@ -540,32 +675,23 @@ export default function IntelligenceMap() {
                       className="text-[10px] font-bold px-1.5 py-0.5 rounded"
                       style={{ background: bgColor, color: urgencyColor, border: `1px solid ${borderColor}` }}
                     >
-                      {alert.agent.split(' ')[0].toUpperCase()}
+                      {alert.urgency.toUpperCase()}
                     </span>
-                    <span className="text-[10px] font-mono" style={{ color: '#4B5563' }}>{alert.time}</span>
                   </div>
                   <h4 className="text-xs font-bold leading-tight mb-1" style={{ color: '#F8F9FA' }}>{alert.headline}</h4>
-                  <p className="text-[10px] line-clamp-2" style={{ color: '#6B7280' }}>{alert.detail}</p>
+                  <p className="text-[10px] line-clamp-2" style={{ color: '#6B7280' }}>{alert.action}</p>
                 </div>
-                {alert.status === 'pending' && (
-                  <div className="mt-2.5 flex gap-2">
-                    <button
-                      className="flex-1 py-1 text-white text-[10px] font-bold rounded uppercase transition-opacity hover:opacity-90"
-                      style={{ background: urgencyColor }}
-                    >
-                      Review
-                    </button>
-                    <button
-                      className="flex-1 py-1 text-[10px] font-bold rounded uppercase transition-all"
-                      style={{ color: '#6B7280', border: '1px solid rgba(255,255,255,0.1)', background: 'transparent' }}
-                    >
-                      Dismiss
-                    </button>
-                  </div>
-                )}
+                <div className="mt-2.5 text-[10px] italic" style={{ color: '#4B5563' }}>
+                  {alert.reasoning}
+                </div>
               </motion.div>
             );
           })}
+          {alerts.length === 0 && !signalsLoading && (
+            <div className="flex items-center justify-center w-full text-xs" style={{ color: '#6B7280' }}>
+              Loading insights...
+            </div>
+          )}
         </div>
       </div>
     </div>

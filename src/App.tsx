@@ -2,8 +2,7 @@ import React, { useState } from 'react';
 import { BrowserRouter, Route, Routes, Navigate } from 'react-router-dom';
 import AppLayout from './components/layout/AppLayout';
 import Onboarding from './pages/Onboarding';
-import IntelligenceMap from './pages/IntelligenceMap';
-import Dashboard from './pages/Dashboard';
+import WorkspaceTabs from './pages/WorkspaceTabs';
 import Chat from './pages/Chat';
 import Recommendations from './pages/Recommendations';
 
@@ -40,8 +39,8 @@ export default function App() {
         {/* Main Application Layout */}
         <Route element={onboardingComplete ? <AppLayout /> : <Navigate to="/onboarding" replace />}>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
-          <Route path="/map" element={<IntelligenceMap />} />
-          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/map" element={<WorkspaceTabs />} />
+          <Route path="/dashboard" element={<WorkspaceTabs />} />
           <Route path="/chat" element={<Chat />} />
           <Route path="/recommendations" element={<Recommendations />} />
 

@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(/Users/braydencjr/Desktop/UMHackathon2026/backend/venv/bin/python3 -c ' *)"
+    ]
+  }
+}

@@ -9,7 +9,19 @@ coverage/
 
 # Python
 backend/venv/
+venv/
 **/__pycache__/
 *.py[cod]
+*.pyo
 .pytest_cache/
 .mypy_cache/
+.ruff_cache/
+
+# Node
+.npm/
+.eslintcache/
+.vite/
+
+# Cache
+.cache/
+*.cache
