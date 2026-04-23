@@ -2,6 +2,7 @@
 Application settings — loaded from environment variables / .env file.
 Copy .env.example → .env and fill in your values.
 """
+from pathlib import Path
 from pydantic_settings import BaseSettings
 
 
@@ -9,7 +10,11 @@ class Settings(BaseSettings):
     # Z.AI (GLM) — OpenAI-compatible
     zai_api_key: str = ""
     zai_base_url: str = "https://open.bigmodel.cn/api/paas/v4/"
-    zai_model: str = "glm-4"
+    zai_model: str = "glm-4.5"
+
+    # Search & Map Integrations
+    tavily_api_key: str = ""
+    google_maps_api_key: str = ""
 
     # Database
     database_url: str = "postgresql+asyncpg://merchantmind:password@localhost:5432/merchantmind"
@@ -25,7 +30,7 @@ class Settings(BaseSettings):
         return [o.strip() for o in self.cors_origins.split(",")]
 
     class Config:
-        env_file = ".env"
+        env_file = str(Path(__file__).resolve().parent / ".env")
         extra = "ignore"
 
 

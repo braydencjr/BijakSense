@@ -1,20 +1,29 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ListOrdered, CheckCircle2 } from 'lucide-react';
-import { ALERTS } from '../data/mock';
 import { cn } from '../lib/utils';
 import { motion } from 'motion/react';
 
 export default function Recommendations() {
   const [filter, setFilter] = useState('all');
+  const [historical, setHistorical] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const historical = [
-    ...ALERTS,
-    { id: 'h1', agent: 'Inventory Planner', urgency: 'amber', headline: 'Tapioca Pearls below trigger threshold', detail: 'Stock dropping to 6 days. Standard delivery window is 3 days.', time: 'Last week', status: 'acted_on', note: 'Ordered 15kg via Whatsapp.' },
-    { id: 'h2', agent: 'Market Analyst', urgency: 'green', headline: 'Taro Milk Tea stabilizing', detail: 'Demand has leveled off, maintaining current price is optimal.', time: '2 weeks ago', status: 'dismissed' },
-    { id: 'h3', agent: 'Location Scout', urgency: 'amber', headline: 'Competitor closed 2 blocks away', detail: 'Boba Time on SS2 has permanently closed. Expect 10-15% spillover traffic this weekend.', time: '3 weeks ago', status: 'acted_on', note: 'Prepped extra pearls for weekend.' },
-  ];
-
-  const filtered = filter === 'all' ? historical : historical.filter(a => a.status === filter);
+  // We fetch from the FastAPI backend now!
+  useEffect(() => {
+    async function loadRecs() {
+      try {
+        setLoading(true);
+        const res = await fetch(`http://localhost:8000/api/recommendations?status=${filter}`);
+        const data = await res.json();
+        setHistorical(data);
+      } catch (e) {
+        console.error("Failed to fetch backend recommendations", e);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadRecs();
+  }, [filter]);
 
   const urgencyColor = (u: string) => u === 'red' ? '#FF4B4B' : u === 'amber' ? '#FFB000' : '#00D1C1';
   const statusStyle = (s: string) => {
@@ -54,7 +63,11 @@ export default function Recommendations() {
       </header>
 
       <div className="p-8 max-w-7xl mx-auto space-y-4">
-        {filtered.map((item, i) => (
+        {loading ? (
+          <div className="text-gray-500 text-center py-10">Loading insights from Backend...</div>
+        ) : historical.length === 0 ? (
+          <div className="text-gray-600 text-center py-10">No recommendations found.</div>
+        ) : historical.map((item, i) => (
           <motion.div
             key={item.id ?? i}
             initial={{ opacity: 0, y: 10 }}

@@ -7,4 +7,10 @@ coverage/
 .env*
 !.env.example
 .vscode/
-__pycache__/
+
+# Python
+backend/venv/
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
