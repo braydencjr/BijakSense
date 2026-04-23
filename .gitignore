@@ -14,3 +14,7 @@ backend/venv/
 *.py[cod]
 .pytest_cache/
 .mypy_cache/
+
+# Dataset
+dataset/
+lookups/

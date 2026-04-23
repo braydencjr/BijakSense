@@ -37,6 +37,76 @@ async def init_db():
         session.add(Product(merchant_id=merchant_id, name="Matcha Latte", price=12.0))
         session.add(Product(merchant_id=merchant_id, name="Classic Milk Tea", price=8.5))
         
+        # Give Siti Inventory Items
+        session.add(Ingredient(merchant_id=merchant_id, name="Jasmine Tea Leaves", stock_days=10))
+        session.add(Ingredient(merchant_id=merchant_id, name="Tapioca Pearls", stock_days=3))
+        
+        from models.merchant import InventoryItem, PriceHistory
+        
+        jasmine_id = uuid.uuid4()
+        session.add(InventoryItem(
+            id=jasmine_id,
+            merchant_id=merchant_id,
+            item_name="Jasmine Tea Leaves",
+            quantity=5.0,
+            unit="kg",
+            reorder_threshold=10.0,
+            current_price_myr=35.0,
+            last_restocked="2023-10-01",
+            supplier_name="TeaBros Wholesale",
+            lead_time_days=7,
+            supplier_reliability=0.75
+        ))
+        
+        # Seed 30 days of price history for Jasmine Tea (Spiking)
+        for d in range(30):
+            p = 30.0 + (d * 0.1)
+            if d > 25: p += (d-25) * 2.0
+            ts = (datetime.datetime.now() - datetime.timedelta(days=30-d)).isoformat()
+            session.add(PriceHistory(inventory_item_id=jasmine_id, price=p, timestamp=ts))
+
+        tapioca_id = uuid.uuid4()
+        session.add(InventoryItem(
+            id=tapioca_id,
+            merchant_id=merchant_id,
+            item_name="Tapioca Pearls",
+            quantity=20.0,
+            unit="kg",
+            reorder_threshold=15.0,
+            current_price_myr=8.5,
+            last_restocked="2023-10-05",
+            supplier_name="BobaSupply HQ",
+            lead_time_days=3,
+            supplier_reliability=0.98
+        ))
+        
+        # Seed 30 days of price history for Tapioca (Stable)
+        for d in range(30):
+            p = 8.0 + (d % 3 * 0.2)
+            ts = (datetime.datetime.now() - datetime.timedelta(days=30-d)).isoformat()
+            session.add(PriceHistory(inventory_item_id=tapioca_id, price=p, timestamp=ts))
+
+        brown_sugar_id = uuid.uuid4()
+        session.add(InventoryItem(
+            id=brown_sugar_id,
+            merchant_id=merchant_id,
+            item_name="Brown Sugar",
+            quantity=10.0,
+            unit="kg",
+            reorder_threshold=5.0,
+            current_price_myr=4.2,
+            last_restocked="2023-09-28",
+            supplier_name="SweetLife Suppliers",
+            lead_time_days=2,
+            supplier_reliability=0.95
+        ))
+        
+        # Seed 30 days of price history for Brown Sugar (Rising)
+        for d in range(30):
+            p = 3.5 + (d * 0.05)
+            ts = (datetime.datetime.now() - datetime.timedelta(days=30-d)).isoformat()
+            session.add(PriceHistory(inventory_item_id=brown_sugar_id, price=p, timestamp=ts))
+
         # Give Siti a mock recommendation from the Market Analyst
         rec = Recommendation(
             merchant_id=merchant_id,

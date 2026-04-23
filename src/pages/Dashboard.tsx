@@ -1,5 +1,5 @@
 import React from 'react';
-import { INGREDIENTS, MERCHANT_INFO } from '../data/mock';
+import { MERCHANT_INFO } from '../data/mock';
 import {
   AlertTriangle, TrendingUp, Package, Sparkles, ArrowRight,
   CheckCircle2, Zap, BarChart2, ShieldAlert,
@@ -51,35 +51,38 @@ function urgencyAccent(urgency: string) {
 }
 
 export default function Dashboard() {
-  const [liveRecs, setLiveRecs] = React.useState<any[]>([]);
-  const [loading, setLoading] = React.useState(true);
-  const [backendError, setBackendError] = React.useState<string | null>(null);
+  const [inventory, setInventory] = React.useState<any[]>([]);
 
   React.useEffect(() => {
     let mounted = true;
 
-    async function loadLiveRecommendations() {
+    async function loadData() {
       try {
         if (mounted) setLoading(true);
-        const res = await fetch('http://localhost:8000/api/recommendations?status=all');
-        if (!res.ok) throw new Error(`Backend returned ${res.status}`);
-        const data = await res.json();
+        // Fetch recommendations
+        const recRes = await fetch('http://localhost:8000/api/recommendations?status=all');
+        const recData = await recRes.json();
+        
+        // Fetch inventory
+        const invRes = await fetch('http://localhost:8000/api/inventory/8899d441-6234-4ed7-85ee-64ffdef25478');
+        const invData = await invRes.json();
+
         if (mounted) {
-          setLiveRecs(Array.isArray(data) ? data : []);
+          setLiveRecs(Array.isArray(recData) ? recData : []);
+          setInventory(Array.isArray(invData) ? invData : []);
           setBackendError(null);
         }
       } catch (error) {
         if (mounted) {
-          setLiveRecs([]);
-          setBackendError(error instanceof Error ? error.message : 'Failed to fetch recommendations');
+          setBackendError(error instanceof Error ? error.message : 'Failed to fetch data');
         }
       } finally {
         if (mounted) setLoading(false);
       }
     }
 
-    loadLiveRecommendations();
-    const refresh = setInterval(loadLiveRecommendations, 20000);
+    loadData();
+    const refresh = setInterval(loadData, 20000);
     return () => {
       mounted = false;
       clearInterval(refresh);
@@ -87,7 +90,7 @@ export default function Dashboard() {
   }, []);
 
   const pendingAlerts = liveRecs.filter((a) => a.status === 'pending');
-  const criticalIngredients = INGREDIENTS.filter(i => i.alert || i.stockDays <= i.reorderPoint).slice(0, 3);
+  const criticalIngredients = inventory.filter(i => (i.quantity || 0) <= (i.reorder_threshold || 10)).slice(0, 3);
   const topSignals = liveRecs
     .filter((rec) => rec.agent?.toLowerCase().includes('market'))
     .slice(0, 3);

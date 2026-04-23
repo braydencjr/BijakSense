@@ -23,6 +23,16 @@ export const INGREDIENTS = [
   { id: 'jasmine-rice', name: "Jasmine rice", reorderPoint: 7, stockDays: 5, price: 42.0, trend: 'spike', supplier: 'RiceKing MY', alert: true },
 ];
 
+export const INVENTORY_ITEMS = [
+  { id: 'inv_1', itemName: 'Jasmine Tea Leaves', quantity: 5.0, unit: 'kg', reorderThreshold: 10.0, currentPriceMyr: 35.0, lastRestocked: '2023-10-01', trend: 'flat', supplier: 'TeaBros Wholesale' },
+  { id: 'inv_2', itemName: 'Tapioca Pearls', quantity: 20.0, unit: 'kg', reorderThreshold: 15.0, currentPriceMyr: 8.5, lastRestocked: '2023-10-05', trend: 'flat', supplier: 'BobaSupply HQ' },
+  { id: 'inv_3', itemName: 'Brown Sugar', quantity: 10.0, unit: 'kg', reorderThreshold: 5.0, currentPriceMyr: 4.2, lastRestocked: '2023-09-28', trend: 'up', supplier: 'SweetLife Suppliers' },
+  { id: 'inv_4', itemName: 'Fresh Milk', quantity: 15.0, unit: 'L', reorderThreshold: 20.0, currentPriceMyr: 6.5, lastRestocked: '2023-10-10', trend: 'flat', supplier: 'PJ Dairy Farm' },
+  { id: 'inv_5', itemName: 'Matcha Powder', quantity: 2.0, unit: 'kg', reorderThreshold: 3.0, currentPriceMyr: 120.0, lastRestocked: '2023-09-15', trend: 'flat', supplier: 'Uji Imports MY' },
+  { id: 'inv_6', itemName: 'Jasmine Rice', quantity: 45.0, unit: 'kg', reorderThreshold: 50.0, currentPriceMyr: 42.0, lastRestocked: '2023-10-02', trend: 'spike', supplier: 'RiceKing MY', alert: true },
+];
+
+
 export const MENU_ITEMS = [
   { id: 'classic', name: "Classic Milk Tea", price: 7.00, areaAvg: 7.50, cost: 2.10 },
   { id: 'brown-sugar', name: "Brown Sugar Boba", price: 9.00, areaAvg: 10.50, cost: 3.20, highlightAction: true },

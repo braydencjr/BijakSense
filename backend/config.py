@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     # Search & Map Integrations
     tavily_api_key: str = ""
     google_maps_api_key: str = ""
+    commodity_price_api_key: str = ""
 
     # Database
     database_url: str = "postgresql+asyncpg://merchantmind:password@localhost:5432/merchantmind"
