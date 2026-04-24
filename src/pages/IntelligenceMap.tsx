@@ -1,10 +1,20 @@
 import React from 'react';
 import { MapContainer, TileLayer, Marker, Polyline, Circle, useMap } from 'react-leaflet';
 import { motion, AnimatePresence } from 'motion/react';
-import { Bell, Activity, Target, Zap } from 'lucide-react';
-import { MERCHANT_INFO, AGENTS } from '../data/mock';
+import { Bell, Target, Zap } from 'lucide-react';
+import { MERCHANT_INFO } from '../data/mock';
 import { getCached, setCache, isCached } from '../lib/cache';
 import L from 'leaflet';
+import oneUtamaImage from '../assets/1_utama.png';
+import bubbleBoxImage from '../assets/bubble_box.png';
+import singaporeFnBImage from '../assets/f&b_sg.png';
+import floodNewsImage from '../assets/flood_news_image.png';
+import jakartaMatchaImage from '../assets/jakarta_matcha.png';
+import mrtImage from '../assets/mrt.png';
+import pearlGardenImage from '../assets/pearl_garden.png';
+import singaporeFnBNewsImage from '../assets/sg_f&b_news.png';
+import songkranImage from '../assets/songklan image .png';
+import tourismSurgeImage from '../assets/tourism_surge_news.png';
 
 interface RegionalSignal {
   id: string;
@@ -50,6 +60,35 @@ const INSIGHTS_CACHE_KEY = 'insights:v3';
 const MAP_ALERTS_CACHE_KEY = 'map:alerts:v3';
 const MAP_REGIONAL_CACHE_KEY = 'map:regional-signals:v1';
 const MAP_LOCAL_CACHE_KEY = 'map:local-signals:v1';
+
+const SIGNAL_SUPPORTING_MEDIA: Record<string, { label: string; image: string }[]> = {
+  sig_thai_flood: [
+    { label: 'Flood disruption report', image: floodNewsImage },
+  ],
+  sig_sg_inflation: [
+    { label: 'Singapore F&B market report', image: singaporeFnBImage },
+    { label: 'Singapore news coverage', image: singaporeFnBNewsImage },
+  ],
+  sig_id_matcha: [
+    { label: 'Jakarta matcha trend coverage', image: jakartaMatchaImage },
+  ],
+  sig_thai_tourism: [
+    { label: 'Songkran travel coverage', image: songkranImage },
+    { label: 'Tourism surge report', image: tourismSurgeImage },
+  ],
+  comp_bubblebox: [
+    { label: 'Bubble Box reference', image: bubbleBoxImage },
+  ],
+  comp_pearlgarden: [
+    { label: 'Pearl Garden reference', image: pearlGardenImage },
+  ],
+  opp_mrt: [
+    { label: 'MRT supporting document', image: mrtImage },
+  ],
+  opp_mall: [
+    { label: '1 Utama supporting document', image: oneUtamaImage },
+  ],
+};
 
 export default function IntelligenceMap({ isActive = true }: IntelligenceMapProps) {
   const [selectedRegionalSignal, setSelectedRegionalSignal] = React.useState<string | null>(null);
@@ -126,6 +165,7 @@ export default function IntelligenceMap({ isActive = true }: IntelligenceMapProp
     return () => { clearInterval(clock); clearInterval(scan); clearInterval(hotspot); };
   }, [isActive, localHotspots.length]);
 
+
   return (
     <div className="flex flex-col h-full w-full overflow-hidden" style={{ background: '#0D0D0D', color: '#F8F9FA' }}>
       <style>{`
@@ -163,29 +203,6 @@ export default function IntelligenceMap({ isActive = true }: IntelligenceMapProp
 
       {/* Main Body */}
       <div className="flex flex-1 overflow-hidden h-full">
-        <aside className="w-64 flex flex-col shrink-0 z-20" style={{ background: '#111318', borderRight: '1px solid rgba(255,255,255,0.07)' }}>
-          <div className="p-4 border-b border-white/5 bg-[#00D1C1]/5">
-            <h2 className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-2">Active Surveillance</h2>
-            <div className="flex items-center gap-2 text-[#00D1C1]">
-              <Activity className="w-3.5 h-3.5" />
-              <span className="text-xs font-semibold">4 Active Observers</span>
-            </div>
-          </div>
-          <div className="flex-1 overflow-y-auto p-3 space-y-3">
-            {AGENTS.map((agent) => (
-              <div key={agent.id} className="rounded-lg p-3 bg-[#00D1C1]/5 border border-[#00D1C1]/20">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="font-semibold text-xs text-[#00D1C1]">{agent.name}</span>
-                  <div className="w-1.5 h-1.5 rounded-full bg-[#00D1C1] animate-pulse" />
-                </div>
-                <div className="text-[9px] font-mono italic text-[#00D1C1]/70 bg-[#00D1C1]/10 p-2 rounded border border-[#00D1C1]/10">
-                  &gt; Processing live signals...
-                </div>
-              </div>
-            ))}
-          </div>
-        </aside>
-
         <main className="flex-1 flex flex-col relative z-10 h-full overflow-hidden">
           <div className="absolute top-4 left-4 z-[1000] bg-[#111318]/90 backdrop-blur p-2 border border-[#00D1C1]/30 rounded shadow-2xl">
             <div className="flex items-center gap-2">
@@ -240,18 +257,50 @@ export default function IntelligenceMap({ isActive = true }: IntelligenceMapProp
             </MapContainer>
           </div>
 
-          {/* Signal Detail Overlay */}
+          {/* Signal Detail Overlays — two-column layout, right = info+source, left = images */}
           <AnimatePresence>
-            {mapView === 'regional' && selectedRegionalSignal && (
-              <motion.div
-                initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}
-                className="absolute top-6 right-6 w-72 z-[1000] bg-[#111318]/95 border border-[#00D1C1]/30 p-4 rounded-xl shadow-2xl backdrop-blur-md"
-              >
-                {(() => {
-                  const s = regionalSignals.find(x => x.id === selectedRegionalSignal);
-                  if (!s) return null;
-                  return (
-                    <>
+            {mapView === 'regional' && selectedRegionalSignal && (() => {
+              const s = regionalSignals.find(x => x.id === selectedRegionalSignal);
+              if (!s) return null;
+              const media = SIGNAL_SUPPORTING_MEDIA[s.id] || [];
+              return (
+                <motion.div
+                  key="reg-overlay"
+                  initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                  className="absolute inset-0 z-[1000] flex gap-3 p-4 pointer-events-none"
+                >
+                  {/* Left column: evidence images */}
+                  <div className="flex flex-col gap-3 overflow-y-auto mm-scroll pointer-events-auto shrink-0 max-w-[24rem]">
+                    {media.map((item, i) => (
+                      <motion.div
+                        key={`reg-img-${i}`}
+                        initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
+                        transition={{ delay: 0.1 + i * 0.06 }}
+                        className="rounded-xl overflow-hidden shadow-2xl border border-white/10 bg-[#0B0D10] backdrop-blur-md"
+                      >
+                        <div className="px-3 py-2 border-b border-white/10 bg-white/[0.03] flex items-center gap-2">
+                          <span className="w-4 h-4 rounded bg-amber-400/10 border border-amber-400/30 flex items-center justify-center text-[8px] font-bold text-amber-400">
+                            {i + 1}
+                          </span>
+                          <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">{item.label}</p>
+                        </div>
+                        <div className="p-2 flex items-center justify-center bg-[#08090C]">
+                          <img src={item.image} alt={item.label} className="w-full h-auto max-h-[240px] object-contain rounded" />
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+
+                  {/* Spacer to push right column to the right */}
+                  <div className="flex-1" />
+
+                  {/* Right column: signal info + source */}
+                  <div className="flex flex-col gap-3 pointer-events-auto shrink-0 w-[24rem]">
+                    <motion.div
+                      key="reg-info"
+                      initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}
+                      className="bg-[#111318]/95 border border-[#00D1C1]/30 p-4 rounded-xl shadow-2xl backdrop-blur-md"
+                    >
                       <div className="flex justify-between items-start mb-3">
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-[#00D1C1]/10 text-[#00D1C1] border border-[#00D1C1]/20 uppercase">{s.type}</span>
                         <Target className="w-4 h-4 text-gray-600" />
@@ -262,21 +311,78 @@ export default function IntelligenceMap({ isActive = true }: IntelligenceMapProp
                         <p className="text-[10px] font-bold text-gray-500 uppercase mb-1">Business Impact</p>
                         <p className="text-[11px] text-[#00D1C1] font-medium">{s.impact}</p>
                       </div>
-                    </>
-                  );
-                })()}
-              </motion.div>
-            )}
-            {mapView === 'local' && selectedLocalSignal && (
-              <motion.div
-                initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}
-                className="absolute top-6 right-6 w-72 z-[1000] bg-[#111318]/95 border border-[#00D1C1]/30 p-4 rounded-xl shadow-2xl backdrop-blur-md"
-              >
-                {(() => {
-                  const s = localSignals.find(x => x.id === selectedLocalSignal);
-                  if (!s) return null;
-                  return (
-                    <>
+                    </motion.div>
+
+                    {media.length > 0 && (
+                      <motion.div
+                        key="reg-source"
+                        initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}
+                        transition={{ delay: 0.08 }}
+                        className="bg-[#111318]/95 border border-amber-400/20 p-4 rounded-xl shadow-2xl backdrop-blur-md"
+                      >
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="w-1.5 h-1.5 rounded-full bg-[#00D1C1]" />
+                          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Source</p>
+                        </div>
+                        <div className="space-y-1">
+                          {media.map((item, i) => (
+                            <div key={`src-${i}`} className="flex items-center gap-2">
+                              <svg className="w-3 h-3 text-[#00D1C1] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                              </svg>
+                              <p className="text-[11px] text-[#00D1C1] font-medium">{item.label}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </motion.div>
+                    )}
+                  </div>
+                </motion.div>
+              );
+            })()}
+
+            {mapView === 'local' && selectedLocalSignal && (() => {
+              const s = localSignals.find(x => x.id === selectedLocalSignal);
+              if (!s) return null;
+              const media = SIGNAL_SUPPORTING_MEDIA[s.id] || [];
+              return (
+                <motion.div
+                  key="local-overlay"
+                  initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                  className="absolute inset-0 z-[1000] flex gap-3 p-4 pointer-events-none"
+                >
+                  {/* Left column: evidence images */}
+                  <div className="flex flex-col gap-3 overflow-y-auto mm-scroll pointer-events-auto shrink-0 max-w-[24rem]">
+                    {media.map((item, i) => (
+                      <motion.div
+                        key={`local-img-${i}`}
+                        initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
+                        transition={{ delay: 0.1 + i * 0.06 }}
+                        className="rounded-xl overflow-hidden shadow-2xl border border-white/10 bg-[#0B0D10] backdrop-blur-md"
+                      >
+                        <div className="px-3 py-2 border-b border-white/10 bg-white/[0.03] flex items-center gap-2">
+                          <span className="w-4 h-4 rounded bg-amber-400/10 border border-amber-400/30 flex items-center justify-center text-[8px] font-bold text-amber-400">
+                            {i + 1}
+                          </span>
+                          <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">{item.label}</p>
+                        </div>
+                        <div className="p-2 flex items-center justify-center bg-[#08090C]">
+                          <img src={item.image} alt={item.label} className="w-full h-auto max-h-[240px] object-contain rounded" />
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+
+                  {/* Spacer */}
+                  <div className="flex-1" />
+
+                  {/* Right column: signal info + source */}
+                  <div className="flex flex-col gap-3 pointer-events-auto shrink-0 w-[24rem]">
+                    <motion.div
+                      key="local-info"
+                      initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}
+                      className="bg-[#111318]/95 border border-[#00D1C1]/30 p-4 rounded-xl shadow-2xl backdrop-blur-md"
+                    >
                       <div className="flex justify-between items-start mb-3">
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-[#00D1C1]/10 text-[#00D1C1] border border-[#00D1C1]/20 uppercase">
                           {s.type}
@@ -299,11 +405,35 @@ export default function IntelligenceMap({ isActive = true }: IntelligenceMapProp
                           <p className="text-[11px] text-[#00D1C1] font-medium">{s.urgency}</p>
                         </div>
                       </div>
-                    </>
-                  );
-                })()}
-              </motion.div>
-            )}
+                    </motion.div>
+
+                    {media.length > 0 && (
+                      <motion.div
+                        key="local-source"
+                        initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}
+                        transition={{ delay: 0.08 }}
+                        className="bg-[#111318]/95 border border-amber-400/20 p-4 rounded-xl shadow-2xl backdrop-blur-md"
+                      >
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="w-1.5 h-1.5 rounded-full bg-[#00D1C1]" />
+                          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Source</p>
+                        </div>
+                        <div className="space-y-1">
+                          {media.map((item, i) => (
+                            <div key={`src-${i}`} className="flex items-center gap-2">
+                              <svg className="w-3 h-3 text-[#00D1C1] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                              </svg>
+                              <p className="text-[11px] text-[#00D1C1] font-medium">{item.label}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </motion.div>
+                    )}
+                  </div>
+                </motion.div>
+              );
+            })()}
           </AnimatePresence>
         </main>
       </div>

@@ -8,9 +8,9 @@ import {
   Package,
   LogOut
 } from 'lucide-react';
-import { AGENTS } from '../../data/mock';
 import { cn } from '../../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
+import logoImage from '../../assets/logo.jpg';
 
 function handleLogout() {
   localStorage.removeItem('bijaksense:onboardingComplete');
@@ -46,17 +46,16 @@ export default function Sidebar() {
     >
       {/* Logo */}
       <div className="h-14 flex items-center justify-center p-2 shrink-0" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-        <div
-          className="w-7 h-7 rounded-md flex items-center justify-center text-white font-bold shrink-0 text-xs"
-          style={{ background: 'linear-gradient(135deg,#00D1C1,#00BCAE)', boxShadow: '0 0 12px rgba(0,209,193,0.4)' }}
-        >
-          B
-        </div>
+        <img
+          src={logoImage}
+          alt="BijakSense logo"
+          className="w-7 h-7 rounded-md object-cover shrink-0"
+        />
         {expanded && (
           <motion.span
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="ml-3 font-bold uppercase tracking-tight text-base overflow-hidden whitespace-nowrap"
+            className="ml-3 font-bold tracking-tight text-base overflow-hidden whitespace-nowrap"
             style={{ color: '#F8F9FA' }}
           >
             BijakSense
@@ -102,31 +101,8 @@ export default function Sidebar() {
         })}
       </nav>
 
-      {/* Bottom — agent status + logout */}
+      {/* Bottom — logout */}
       <div className="p-3 space-y-2" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
-        {/* Agent dots */}
-        <div className={cn("flex", expanded ? "justify-between items-center" : "justify-center")}>
-          {expanded && <span className="text-xs uppercase tracking-wider font-semibold" style={{ color: '#4B5563' }}>System Status</span>}
-          <div className="flex gap-1.5 align-center justify-center">
-            {AGENTS.map((a) => (
-              <div
-                key={a.id}
-                title={a.name}
-                className={cn(
-                  "w-2 h-2 rounded-full",
-                  a.status === 'processing' ? "animate-pulse" : ''
-                )}
-                style={{
-                  background: a.status === 'processing' ? '#00D1C1' :
-                    a.status === 'alert' ? '#FF4B4B' : '#374151',
-                  boxShadow: a.status === 'processing' ? '0 0 6px #00D1C1' :
-                    a.status === 'alert' ? '0 0 6px #FF4B4B' : 'none',
-                }}
-              />
-            ))}
-          </div>
-        </div>
-
         {/* Logout button */}
         <div className="relative">
           <AnimatePresence>

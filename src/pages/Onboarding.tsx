@@ -5,6 +5,7 @@ import { MapContainer, TileLayer, Marker, Circle, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { Sparkles, MapPin, Building2, Search, ArrowRight, CheckCircle2, TrendingUp, Users, Zap, Store, Coffee, ShoppingBag, Utensils, Briefcase, Star, ChevronRight } from 'lucide-react';
+import logoImage from '../assets/logo.jpg';
 
 // Fix Leaflet default marker icons
 const defaultIcon = L.icon({
@@ -377,10 +378,13 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
                   initial={{ scale: 0, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
-                  className="w-16 h-16 rounded-xl flex items-center justify-center text-3xl font-bold mb-8"
-                  style={{ background: 'linear-gradient(135deg,#00D1C1,#00BCAE)', boxShadow: '0 0 40px rgba(0,209,193,0.35)' }}
+                  className="w-16 h-16 rounded-xl mb-8 overflow-hidden"
                 >
-                  B
+                  <img
+                    src={logoImage}
+                    alt="BijakSense logo"
+                    className="w-full h-full object-cover"
+                  />
                 </motion.div>
 
                 <motion.h1

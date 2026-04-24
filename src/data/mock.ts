@@ -3,7 +3,7 @@
 
 export const MERCHANT_INFO = {
   name: "Siti",
-  businessName: "Siti's Bubble Tea",
+  businessName: "Mamak Bubble Tea",
   sector: "F&B",
   subCategory: "Bubble Tea",
   location: "Petaling Jaya, Selangor",

@@ -58,7 +58,7 @@ REGIONAL_SIGNALS = [
         "category": "tourism",
         "origin": "Bangkok, Thailand",
         "coords": {"lat": 13.7563, "lng": 100.5018},
-        "summary": "Songkran tourism surge +28% YoY — Thai bubble tea chains expanding aggressively. Competitive playbook applicable to MY market.",
+        "summary": "Songkran tourism surge +28% — Thai bubble tea chains expanding aggressively. Competitive playbook applicable to MY market.",
         "impact": "↑ competition",
         "urgency": "teal",
         "agent": "Market Analyst",

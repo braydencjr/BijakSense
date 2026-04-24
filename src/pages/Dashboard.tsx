@@ -123,10 +123,10 @@ export default function Dashboard({ isActive = true }: DashboardProps) {
         <div style={{ maxWidth: 1280, width: '100%', margin: '0 auto', padding: '32px 40px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24 }}>
           <div>
             <p style={{ fontSize: 13, color: T.muted, letterSpacing: '0.12em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 8 }}>
-              {new Date().toLocaleDateString('en-MY', { weekday: 'long', day: 'numeric', month: 'long' })}
+              Command Center
             </p>
             <h1 style={{ fontSize: 28, fontWeight: 600, color: T.primary, margin: 0, letterSpacing: '-0.02em' }}>
-              Good morning, {MERCHANT_INFO.name}
+              Good Day,  {MERCHANT_INFO.businessName}
             </h1>
           </div>
           <Link to="/chat"
