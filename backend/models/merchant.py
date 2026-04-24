@@ -77,3 +77,22 @@ class PriceHistory(Base):
     timestamp = Column(String(50), nullable=False) # ISO date string
 
     inventory_item = relationship("InventoryItem", back_populates="price_history")
+
+class LookupItem(Base):
+    __tablename__ = "item"
+
+    item_code = Column(Integer, primary_key=True)
+    item = Column(String, nullable=False)
+    unit = Column(String)
+    item_group = Column(String)
+    item_category = Column(String)
+
+class LookupPremise(Base):
+    __tablename__ = "premise"
+
+    premise_code = Column(Integer, primary_key=True)
+    premise = Column(String, nullable=False)
+    address = Column(String)
+    premise_type = Column(String)
+    state = Column(String)
+    district = Column(String)

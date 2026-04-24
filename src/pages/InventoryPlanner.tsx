@@ -1,16 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Package, AlertTriangle, TrendingUp, Calendar, ArrowRight, ArrowDown, ArrowUp, Loader2, Plus, X, Sparkles } from 'lucide-react';
+import { Package, AlertTriangle, TrendingUp, Calendar, ArrowRight, ArrowDown, ArrowUp, Loader2, Plus, X, Pencil, ChevronDown } from 'lucide-react';
+
 import { cn } from '../lib/utils';
 import { AreaChart, Area, ResponsiveContainer, YAxis } from 'recharts';
-
-const mockPriceHistory = (trend: 'flat' | 'up' | 'spike') => {
-  return Array.from({ length: 30 }).map((_, i) => {
-    let base = 100 + Math.random() * 5;
-    if (trend === 'up') base += i * 1.5;
-    if (trend === 'spike' && i > 25) base += (i - 25) * 8;
-    return { value: base };
-  });
-};
 
 const MERCHANT_ID = "8899d441-6234-4ed7-85ee-64ffdef25478";
 
@@ -18,6 +10,14 @@ export default function InventoryPlanner() {
   const [inventory, setInventory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
+  
+  // Reference Data States
+  const [categories, setCategories] = useState<string[]>([]);
+  const [itemsInCategory, setItemsInCategory] = useState<any[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string>('');
+  const [loadingCategories, setLoadingCategories] = useState(false);
+  const [loadingItems, setLoadingItems] = useState(false);
+
   const [newItem, setNewItem] = useState({
     item_name: '',
     quantity: 0,
@@ -49,15 +49,35 @@ export default function InventoryPlanner() {
     }
   };
 
-  const fetchSymbols = async () => {
+  const fetchCategories = async () => {
     try {
-      const res = await fetch(`http://localhost:8000/api/inventory/symbols`);
+      setLoadingCategories(true);
+      const res = await fetch('http://localhost:8000/api/inventory/categories');
       if (res.ok) {
         const data = await res.json();
-        setSymbols(data);
+        setCategories(data);
       }
     } catch (err) {
-      console.error("Failed to fetch symbols:", err);
+      console.error("Failed to fetch categories:", err);
+    } finally {
+      setLoadingCategories(false);
+    }
+  };
+
+  const fetchItemsByCategory = async (category: string) => {
+    setItemsInCategory([]); // Clear immediately to avoid stale data
+    if (!category) return;
+    try {
+      setLoadingItems(true);
+      const res = await fetch(`http://localhost:8000/api/inventory/items-by-category/${encodeURIComponent(category)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setItemsInCategory(data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch items:", err);
+    } finally {
+      setLoadingItems(false);
     }
   };
 
@@ -76,6 +96,7 @@ export default function InventoryPlanner() {
   useEffect(() => {
     fetchInventory();
     fetchRecs();
+    fetchCategories();
   }, []);
 
   const handleAddItem = async (e: React.FormEvent) => {
@@ -94,6 +115,8 @@ export default function InventoryPlanner() {
       if (res.ok) {
         setShowAddModal(false);
         setEditingId(null);
+        setSelectedCategory('');
+        setItemsInCategory([]);
         fetchInventory();
         setNewItem({
           item_name: '',
@@ -157,6 +180,8 @@ export default function InventoryPlanner() {
             <button
               onClick={() => {
                 setEditingId(null);
+                setSelectedCategory('');
+                setItemsInCategory([]);
                 setNewItem({
                   item_name: '',
                   quantity: 0,
@@ -165,7 +190,8 @@ export default function InventoryPlanner() {
                   current_price_myr: 0,
                   supplier_name: '',
                   lead_time_days: 3,
-                  commodity_symbol: ''
+                  manufacturing_cost: 0,
+                  shipping_cost: 0
                 });
                 setShowAddModal(true);
               }}
@@ -197,55 +223,64 @@ export default function InventoryPlanner() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-100">
-                {inventory.map(item => {
-                  const isCrit = (item.quantity || 0) <= (item.reorder_threshold || item.reorderThreshold || 0);
-                  const isAlert = item.alert || (item.supplier_reliability && item.supplier_reliability < 0.8);
+                {inventory.length === 0 && !loading ? (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-10 text-center text-neutral-400">
+                      No items found. Click "Add Item" to begin.
+                    </td>
+                  </tr>
+                ) : (
+                  inventory.map(item => {
+                    const isCrit = (item.quantity || 0) <= (item.reorder_threshold || item.reorderThreshold || 0);
+                    const isAlert = item.alert || (item.supplier_reliability && item.supplier_reliability < 0.8);
 
-                  return (
-                    <tr key={item.id} className={cn("hover:bg-neutral-50/50 transition-colors group", isAlert ? "bg-red-50/30" : isCrit ? "bg-amber-50/30" : "")}>
-                      <td className="px-6 py-4 font-medium">
-                        <div className="flex items-center">
-                          {isAlert && <AlertTriangle className="w-4 h-4 text-red-500 mr-2" />}
-                          {!isAlert && isCrit && <AlertTriangle className="w-4 h-4 text-amber-500 mr-2" />}
-                          {item.item_name || item.itemName}
-                        </div>
-                        {item.supplier_name && <div className="text-[10px] text-neutral-400 mt-0.5 ml-6 uppercase tracking-wider">Lead: {item.lead_time_days}d</div>}
-                      </td>
-                      <td className="px-6 py-4 text-neutral-600">{item.supplier_name || item.supplier}</td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center">
-                          <span className={cn("font-mono font-medium", isAlert || isCrit ? (isAlert ? "text-red-700" : "text-amber-700") : "text-neutral-700")}>
-                            {(item.quantity || 0).toFixed(1)} {item.unit}
-                          </span>
-                          <span className="text-neutral-400 ml-1 text-xs">/ {item.reorder_threshold || item.reorderThreshold} reorder</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 font-mono text-neutral-700">RM {(item.current_price_myr || item.currentPriceMyr || 0).toFixed(2)}</td>
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex items-center justify-end space-x-2">
-                          <button
-                            onClick={() => handleEditItem(item)}
-                            className="p-1.5 text-neutral-400 hover:text-neutral-900 transition-colors"
-                          >
-                            <Sparkles className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteItem(item.id)}
-                            className="p-1.5 text-neutral-400 hover:text-red-600 transition-colors"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                          <button className={cn(
-                            "px-4 py-1.5 rounded-md text-xs font-bold transition-colors ml-2",
-                            isAlert ? "bg-red-600 hover:bg-red-700 text-white" : isCrit ? "bg-amber-500 hover:bg-amber-600 text-white" : "bg-neutral-100 hover:bg-neutral-200 text-neutral-700"
-                          )}>
-                            {isCrit || isAlert ? 'ORDER NOW' : 'REVIEW'}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })}
+                    return (
+                      <tr key={item.id} className={cn("hover:bg-neutral-50/50 transition-colors group", isAlert ? "bg-red-50/30" : isCrit ? "bg-amber-50/30" : "")}>
+                        <td className="px-6 py-4 font-medium">
+                          <div className="flex items-center">
+                            {isAlert && <AlertTriangle className="w-4 h-4 text-red-500 mr-2" />}
+                            {!isAlert && isCrit && <AlertTriangle className="w-4 h-4 text-amber-500 mr-2" />}
+                            {item.item_name || item.itemName}
+                          </div>
+                          {item.supplier_name && <div className="text-[10px] text-neutral-400 mt-0.5 ml-6 uppercase tracking-wider">Lead: {item.lead_time_days}d</div>}
+                        </td>
+                        <td className="px-6 py-4 text-neutral-600">{item.supplier_name || item.supplier}</td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center">
+                            <span className={cn("font-mono font-medium", isAlert || isCrit ? (isAlert ? "text-red-700" : "text-amber-700") : "text-neutral-700")}>
+                              {(item.quantity || 0).toFixed(1)} {item.unit}
+                            </span>
+                            <span className="text-neutral-400 ml-1 text-xs">/ {item.reorder_threshold || item.reorderThreshold} reorder</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 font-mono text-neutral-700">RM {(item.current_price_myr || item.currentPriceMyr || 0).toFixed(2)}</td>
+                        <td className="px-6 py-4 text-right">
+                          <div className="flex items-center justify-end space-x-2">
+                            <button
+                              onClick={() => handleEditItem(item)}
+                              className="p-1.5 text-neutral-400 hover:text-neutral-900 transition-colors"
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </button>
+
+                            <button
+                              onClick={() => handleDeleteItem(item.id)}
+                              className="p-1.5 text-neutral-400 hover:text-red-600 transition-colors"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                            <button className={cn(
+                              "px-4 py-1.5 rounded-md text-xs font-bold transition-colors ml-2",
+                              isAlert ? "bg-red-600 hover:bg-red-700 text-white" : isCrit ? "bg-amber-500 hover:bg-amber-600 text-white" : "bg-neutral-100 hover:bg-neutral-200 text-neutral-700"
+                            )}>
+                              {isCrit || isAlert ? 'ORDER NOW' : 'REVIEW'}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })
+                )}
               </tbody>
             </table>
           </div>
@@ -269,7 +304,7 @@ export default function InventoryPlanner() {
                       <div key={idx} className="relative pl-6">
                         <div className={cn(
                           "absolute w-3 h-3 rounded-full -left-[7px] top-1.5 shadow-[0_0_0_4px_white]",
-                          isUrgent ? "bg-red-500" : "bg-teal-500"
+                          isUrgent ? "bg-red-50" : "bg-teal-500"
                         )} />
                         <div className={cn(
                           "text-xs font-bold mb-1 uppercase tracking-wider",
@@ -308,7 +343,7 @@ export default function InventoryPlanner() {
               <h2 className="font-semibold">Dynamic Ingredient Price Trends (30d)</h2>
             </div>
             <div className="p-6 space-y-6">
-              {inventory.filter(i => i.price_history?.length > 0 || i.priceHistory?.length > 0).slice(0, 3).map((item, i) => {
+              {inventory.filter(i => (i.price_history?.length > 0 || i.priceHistory?.length > 0)).slice(0, 3).map((item, i) => {
                 const history = (item.price_history || item.priceHistory || []).map((ph: any) => ({ value: ph.price }));
                 const trendColor = item.trend === 'spike' ? '#ef4444' : item.trend === 'up' ? '#f59e0b' : '#14b8a6';
 
@@ -354,6 +389,54 @@ export default function InventoryPlanner() {
               </button>
             </div>
             <form onSubmit={handleAddItem} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
+              {/* Category and Item Selection */}
+              {!editingId && (
+                <div className="bg-neutral-50 p-4 rounded-xl space-y-4 border border-neutral-200">
+                  <div className="flex items-center text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-1">
+                    <Sparkles className="w-3 h-3 mr-1" /> DOSM Reference Data
+                  </div>
+                  
+                  <div>
+                    <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-1">Category</label>
+                    <div className="relative">
+                      <select
+                        className="w-full px-4 py-2 bg-white border border-neutral-200 rounded-lg outline-none appearance-none focus:ring-2 focus:ring-neutral-900 pr-10"
+                        value={selectedCategory}
+                        onChange={(e) => {
+                          const cat = e.target.value;
+                          setSelectedCategory(cat);
+                          fetchItemsByCategory(cat);
+                        }}
+                      >
+                        <option value="">Select a category...</option>
+                        {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                      </select>
+                      <ChevronDown className="w-4 h-4 absolute right-3 top-2.5 text-neutral-400 pointer-events-none" />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-1">Reference Item</label>
+                    <div className="relative">
+                      <select
+                        className="w-full px-4 py-2 bg-white border border-neutral-200 rounded-lg outline-none appearance-none focus:ring-2 focus:ring-neutral-900 pr-10"
+                        disabled={!selectedCategory || loadingItems}
+                        onChange={(e) => {
+                          const item = itemsInCategory.find(i => i.item === e.target.value);
+                          if (item) {
+                            setNewItem({ ...newItem, item_name: item.item, unit: item.unit });
+                          }
+                        }}
+                      >
+                        <option value="">{loadingItems ? 'Loading items...' : 'Select an item...'}</option>
+                        {itemsInCategory.map(item => <option key={item.item_code} value={item.item}>{item.item} ({item.unit})</option>)}
+                      </select>
+                      <ChevronDown className="w-4 h-4 absolute right-3 top-2.5 text-neutral-400 pointer-events-none" />
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div>
                 <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-1">Item Name</label>
                 <input
@@ -406,7 +489,6 @@ export default function InventoryPlanner() {
                 </div>
               </div>
 
-              {/* Supply Chain Details Section */}
               <div className="border-t border-neutral-100 pt-4 mt-2">
                 <label className="block text-xs font-bold text-neutral-400 uppercase tracking-widest mb-3">Supply Chain Details</label>
                 <div className="space-y-4">

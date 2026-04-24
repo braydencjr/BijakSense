@@ -12,10 +12,27 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from database import get_db
-from models.merchant import InventoryItem, Merchant
+from models.merchant import InventoryItem, Merchant, LookupItem
 from schemas.merchant import InventoryItemResponse, InventoryItemBase
 
 router = APIRouter(prefix="/api/inventory", tags=["Inventory"])
+
+@router.get("/categories", response_model=List[str])
+async def get_item_categories(db: AsyncSession = Depends(get_db)):
+    """Fetch unique item categories from the lookup table."""
+    result = await db.execute(select(LookupItem.item_category).distinct())
+    categories = result.scalars().all()
+    return sorted([c for c in categories if c])
+
+@router.get("/items-by-category/{category}", response_model=List[dict])
+async def get_items_by_category(category: str, db: AsyncSession = Depends(get_db)):
+    """Fetch items belonging to a specific category."""
+    result = await db.execute(
+        select(LookupItem.item_code, LookupItem.item, LookupItem.unit)
+        .where(LookupItem.item_category == category)
+    )
+    items = result.all()
+    return [{"item_code": row.item_code, "item": row.item, "unit": row.unit} for row in items]
 
 @router.post("/{merchant_id}", response_model=InventoryItemResponse)
 async def add_inventory_item(
