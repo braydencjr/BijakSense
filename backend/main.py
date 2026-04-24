@@ -28,6 +28,7 @@ from routers.recommendations import router as recommendations_router
 from routers.signals import router as signals_router
 from routers.insights import router as insights_router
 from routers.inventory import router as inventory_router
+from routers.locations import router as locations_router
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -85,3 +86,4 @@ app.include_router(recommendations_router)
 app.include_router(signals_router)
 app.include_router(insights_router)
 app.include_router(inventory_router)
+app.include_router(locations_router)

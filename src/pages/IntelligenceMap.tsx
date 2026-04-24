@@ -56,10 +56,32 @@ function MapAutoResize({ isActive }: { isActive: boolean }) {
 }
 
 const API = 'http://localhost:8000';
-const INSIGHTS_CACHE_KEY = 'insights:v3';
-const MAP_ALERTS_CACHE_KEY = 'map:alerts:v3';
-const MAP_REGIONAL_CACHE_KEY = 'map:regional-signals:v1';
-const MAP_LOCAL_CACHE_KEY = 'map:local-signals:v1';
+const INSIGHTS_CACHE_KEY = 'insights:v4';
+const MAP_ALERTS_CACHE_KEY = 'map:alerts:v4';
+const MAP_REGIONAL_CACHE_KEY = 'map:regional-signals:v2';
+const MAP_LOCAL_CACHE_KEY = 'map:local-signals:v2';
+const SIGNALS_TTL_MS = 2 * 60 * 1000;
+const INSIGHTS_TTL_MS = 30 * 1000;
+
+function buildFallbackAlerts(regional: RegionalSignal[], local: LocalSignal[]) {
+  const regionalAlerts = regional.map((signal) => ({
+    id: `reg-${signal.id}`,
+    urgency: signal.urgency,
+    headline: `Regional signal: ${signal.origin}`,
+    action: signal.summary,
+    reasoning: signal.impact,
+  }));
+
+  const localAlerts = local.map((signal) => ({
+    id: `local-${signal.id}`,
+    urgency: signal.urgency,
+    headline: `Local signal: ${signal.name}`,
+    action: signal.description,
+    reasoning: `${signal.category} · ${signal.distance.toFixed(1)} km away`,
+  }));
+
+  return [...regionalAlerts, ...localAlerts].slice(0, 8);
+}
 
 const SIGNAL_SUPPORTING_MEDIA: Record<string, { label: string; image: string }[]> = {
   sig_thai_flood: [
@@ -126,8 +148,8 @@ export default function IntelligenceMap({ isActive = true }: IntelligenceMapProp
         const local = await localRes.json();
         setRegionalSignals(Array.isArray(regional) ? regional : []);
         setLocalSignals(Array.isArray(local) ? local : []);
-        setCache(MAP_REGIONAL_CACHE_KEY, regional, { ttlMs: null });
-        setCache(MAP_LOCAL_CACHE_KEY, local, { ttlMs: null });
+        setCache(MAP_REGIONAL_CACHE_KEY, regional, { ttlMs: SIGNALS_TTL_MS });
+        setCache(MAP_LOCAL_CACHE_KEY, local, { ttlMs: SIGNALS_TTL_MS });
       } catch (e) { console.error(e); } finally { setSignalsLoading(false); }
     }
     loadSignals();
@@ -135,18 +157,47 @@ export default function IntelligenceMap({ isActive = true }: IntelligenceMapProp
 
   React.useEffect(() => {
     if (!hasInitialized) return;
-    async function loadInsights() {
+    let cancelled = false;
+
+    async function loadInsights(forceRefresh = false) {
+      if (forceRefresh) {
+        // Version-bump the cache key by ignoring stale in-memory/session cache on refresh.
+        setCache(MAP_ALERTS_CACHE_KEY, [], { ttlMs: 0 });
+      }
+
       const cached = getCached<any[]>(MAP_ALERTS_CACHE_KEY) || getCached<any[]>(INSIGHTS_CACHE_KEY);
-      if (cached) { setAlerts(cached); return; }
+      if (Array.isArray(cached) && cached.length > 0) {
+        if (!cancelled) setAlerts(cached);
+        return;
+      }
       try {
         const res = await fetch(`${API}/api/insights`);
         const data = await res.json();
-        setAlerts(Array.isArray(data.insights) ? data.insights : []);
-        setCache(MAP_ALERTS_CACHE_KEY, data.insights, { ttlMs: null });
+        const fetched = Array.isArray(data.insights) ? data.insights : [];
+        const nextAlerts = fetched.length > 0 ? fetched : buildFallbackAlerts(regionalSignals, localSignals);
+        if (!cancelled) setAlerts(nextAlerts);
+        setCache(MAP_ALERTS_CACHE_KEY, nextAlerts, { ttlMs: INSIGHTS_TTL_MS });
       } catch (e) { console.error(e); }
     }
+
     loadInsights();
-  }, [hasInitialized]);
+
+    const intervalId = window.setInterval(() => {
+      loadInsights(true);
+    }, 30_000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [hasInitialized, regionalSignals, localSignals]);
+
+  React.useEffect(() => {
+    if (mapView !== 'regional') return;
+    if (selectedRegionalSignal) return;
+    if (regionalSignals.length === 0) return;
+    setSelectedRegionalSignal(regionalSignals[0].id);
+  }, [mapView, selectedRegionalSignal, regionalSignals]);
 
   const getUrgencyColor = (u: string) => u === 'red' ? '#ef4444' : u === 'amber' ? '#f59e0b' : '#14b8a6';
   const createDotIcon = (color: string) => L.divIcon({ className: 'bg-transparent', html: `<div class="mm-signal-dot" style="background:${color}; width:16px; height:16px; border-radius:50%; box-shadow: 0 0 15px ${color};"></div>`, iconSize: [16, 16], iconAnchor: [8, 8] });

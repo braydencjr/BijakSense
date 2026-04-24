@@ -31,9 +31,11 @@ const T = {
 };
 
 const API = 'http://localhost:8000';
-const INSIGHTS_CACHE_KEY = 'insights:v3';
-const RECS_CACHE_KEY = 'recs:v1';
+const INSIGHTS_CACHE_KEY = 'insights:v4';
+const RECS_CACHE_KEY = 'recs:v2';
 const DISMISSED_KEY = 'dismissed:v1';
+const INSIGHTS_TTL_MS = 30 * 1000;
+const RECS_TTL_MS = 60 * 1000;
 
 type InsightStatus = 'active' | 'resolved' | 'ignored';
 
@@ -84,7 +86,7 @@ export default function Dashboard({ isActive = true }: DashboardProps) {
     if (!hasInitialized || isCached(RECS_CACHE_KEY)) return;
     fetch(`${API}/api/recommendations?status=all`)
       .then(r => r.json())
-      .then(data => { const arr = Array.isArray(data) ? data : []; setLiveRecs(arr); setCache(RECS_CACHE_KEY, arr, { ttlMs: null }); })
+      .then(data => { const arr = Array.isArray(data) ? data : []; setLiveRecs(arr); setCache(RECS_CACHE_KEY, arr, { ttlMs: RECS_TTL_MS }); })
       .catch(() => { });
   }, [hasInitialized]);
 
@@ -96,7 +98,7 @@ export default function Dashboard({ isActive = true }: DashboardProps) {
       .then(data => {
         const arr = Array.isArray(data.insights) ? data.insights : [];
         setInsights(arr);
-        setCache(INSIGHTS_CACHE_KEY, arr, { ttlMs: null });
+        setCache(INSIGHTS_CACHE_KEY, arr, { ttlMs: INSIGHTS_TTL_MS });
         setInsightsLoaded(true);
       })
       .catch(() => setInsightsLoaded(true));

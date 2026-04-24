@@ -1,4 +1,6 @@
 """Redis async client — singleton."""
+from __future__ import annotations
+
 import redis.asyncio as aioredis
 from config import settings
 

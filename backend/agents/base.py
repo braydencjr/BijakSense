@@ -8,6 +8,8 @@ Every agent:
   - Implements _consult(context) → dict  (called by orchestrator broadcast)
   - Exposes handle_a2a(message) for inter-agent messaging
 """
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from typing import Any, TypedDict
 import uuid

@@ -2,6 +2,8 @@
 BijakSense — Ops Advisor Agent (Member E)
 Provides day-to-day operational advice (staffing, hours, logistics).
 """
+from __future__ import annotations
+
 import logging
 from typing import Any
 

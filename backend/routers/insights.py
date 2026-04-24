@@ -2,14 +2,13 @@
 Insights router — generates grounded personal insights for the Command Center
 using the same seeded signal set shown on the Intelligence Map.
 """
-import json
 import logging
+import time
 from typing import Any, Dict, List
 
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
-from utils.glm_client import call_glm_json
 from mock_signals import REGIONAL_SIGNALS, ALL_LOCAL_SIGNALS
 
 router = APIRouter(prefix="/api/insights", tags=["Insights"])
@@ -107,7 +106,14 @@ def _default_reasoning(signal: Dict[str, Any]) -> str:
 
 def _fallback_insights() -> List[Insight]:
     lookup = _signal_lookup()
-    sorted_signals = sorted(lookup.values(), key=_signal_sort_key)[:MAX_INSIGHTS]
+    sorted_signals = sorted(lookup.values(), key=_signal_sort_key)
+    if sorted_signals:
+        # Rotate the fallback window every 30 seconds so the card set visibly changes.
+        rotation_window = int(time.time() // 30)
+        offset = rotation_window % len(sorted_signals)
+        sorted_signals = sorted_signals[offset:] + sorted_signals[:offset]
+
+    sorted_signals = sorted_signals[:MAX_INSIGHTS]
 
     insights: List[Insight] = []
     for index, signal in enumerate(sorted_signals, start=1):
@@ -117,7 +123,7 @@ def _fallback_insights() -> List[Insight]:
 
         insights.append(
             Insight(
-                id=f"fallback_{index}",
+                id=f"fallback_{signal['id']}",
                 urgency=signal["urgency"],
                 headline=headline[:120],
                 action=_default_action(signal),
@@ -211,48 +217,10 @@ def _ensure_minimum_insights(insights: List[Insight]) -> List[Insight]:
 
 @router.get("", response_model=InsightsResponse)
 async def get_insights():
-    """Generate grounded insights from the same seeded signals used by the map."""
-    signals = _build_signal_catalog()
-    user_message = {
-        "merchant": {
-            "name": "Siti",
-            "business_name": "Siti's Bubble Tea",
-            "location": "Petaling Jaya, Malaysia",
-            "sector": "F&B",
-        },
-        "instructions": {
-            "max_insights": MAX_INSIGHTS,
-            "allowed_urgencies": ["red", "amber", "teal"],
-            "rules": [
-                "Only use the provided signals.",
-                "Every insight must cite one or more provided signal_ids.",
-                "Do not invent facts, timelines, competitors, or numbers.",
-                "Make actions directly useful for this merchant.",
-            ],
-            "output_schema": {
-                "insights": [
-                    {
-                        "signal_ids": ["string"],
-                        "urgency": "red|amber|teal",
-                        "headline": "string",
-                        "action": "string",
-                        "reasoning": "string",
-                    }
-                ]
-            },
-        },
-        "signals": signals,
-    }
+    """Return fast rotating insights from the seeded signal set.
 
-    try:
-        raw = await call_glm_json(
-            system_prompt=SYSTEM_PROMPT,
-            user_message=json.dumps(user_message, ensure_ascii=True, indent=2),
-            temperature=0.2,
-            max_tokens=1200,
-        )
-        insights = _ensure_minimum_insights(_sanitize_ai_insights(raw))
-        return InsightsResponse(insights=insights)
-    except Exception as e:
-        logger.error("Grounded insight generation failed: %s", e)
-        return InsightsResponse(insights=_fallback_insights())
+    External AI generation is intentionally bypassed here because this endpoint is
+    used for the live news rail and needs to respond instantly even when provider
+    quotas or upstream APIs are unhealthy.
+    """
+    return InsightsResponse(insights=_fallback_insights())

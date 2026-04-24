@@ -4,6 +4,8 @@ BijakSense — AI client wrapper.
 Primary: Google Gemini (gemini-2.5-flash).
 Fallback: ilmu-glm-5.1 via Anthropic-compatible API (api.ilmu.ai/anthropic).
 """
+from __future__ import annotations
+
 import json
 import logging
 from typing import Any

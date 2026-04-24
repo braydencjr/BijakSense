@@ -2,6 +2,8 @@
 BijakSense — Orchestrator Agent
 The central hub for A2A communication and user interaction.
 """
+from __future__ import annotations
+
 import logging
 from typing import Any, List, Dict
 

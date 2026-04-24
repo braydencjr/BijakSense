@@ -4,6 +4,8 @@ Chat router — conversational AI endpoint with A2A routing.
 Routes questions to the appropriate specialist agent via MCP-style dispatch.
 Supports Market Analyst, Inventory Planner, and Ops Advisor.
 """
+from __future__ import annotations
+
 import logging
 from typing import Any
 
