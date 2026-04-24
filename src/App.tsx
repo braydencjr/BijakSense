@@ -5,6 +5,7 @@ import Onboarding from './pages/Onboarding';
 import WorkspaceTabs from './pages/WorkspaceTabs';
 import Chat from './pages/Chat';
 import Recommendations from './pages/Recommendations';
+import InventoryPlanner from './pages/InventoryPlanner';
 
 const ONBOARDING_COMPLETE_KEY = 'merchantmind:onboardingComplete';
 
@@ -45,7 +46,7 @@ export default function App() {
           <Route path="/recommendations" element={<Recommendations />} />
 
           {/* Legacy routes */}
-          <Route path="/inventory" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/inventory" element={<InventoryPlanner />} />
           <Route path="/market" element={<Navigate to="/map" replace />} />
           <Route path="/run-hub" element={<Navigate to="/dashboard" replace />} />
           <Route path="/found-hub" element={<Navigate to="/map" replace />} />

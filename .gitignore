@@ -6,6 +6,7 @@ coverage/
 *.log
 .env*
 !.env.example
+.vscode/
 
 # Python
 backend/venv/
@@ -25,3 +26,7 @@ venv/
 # Cache
 .cache/
 *.cache
+
+# Dataset
+dataset/
+lookups/

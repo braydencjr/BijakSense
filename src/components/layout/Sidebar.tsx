@@ -5,6 +5,7 @@ import {
   LayoutDashboard, 
   MessageSquare, 
   ListOrdered,
+  Package,
   LogOut
 } from 'lucide-react';
 import { AGENTS } from '../../data/mock';
@@ -26,6 +27,7 @@ export default function Sidebar() {
     { to: '/dashboard', icon: LayoutDashboard, label: 'Command Center' },
     { to: '/map', icon: Map, label: 'Intelligence Map' },
     { to: '/chat', icon: MessageSquare, label: 'Co-Pilot Chat' },
+    { to: '/inventory', icon: Package, label: 'Inventory Planner' },
     { to: '/recommendations', icon: ListOrdered, label: 'Action Log' },
   ];
 

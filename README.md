@@ -18,3 +18,17 @@ View your app in AI Studio: https://ai.studio/apps/7b00d9a4-f961-4cf9-a666-ca001
 2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
 3. Run the app:
    `npm run dev`
+
+## Run the Backend
+
+**Prerequisites:** Python 3.11+, PostgreSQL, Redis
+
+1. Go to the backend folder:
+   `cd backend`
+2. Create and activate a virtual environment:
+   `uv venv --python 3.11 .venv && source .venv/bin/activate`
+3. Install backend dependencies:
+   `uv pip install -r requirements.txt`
+4. Set the backend environment variables in a `.env` file, including `ZAI_API_KEY`, `DATABASE_URL`, `REDIS_URL`, and `CORS_ORIGINS`
+5. Start the API server:
+   `uvicorn main:app --reload --host 0.0.0.0 --port 8000`

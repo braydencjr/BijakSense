@@ -21,6 +21,20 @@ def build_merchant_context(merchant) -> str:
         for i in (merchant.ingredients or [])
     )
 
+    inventory_str = "\n".join(
+        f"- {i.get('item_name', 'Unknown') if isinstance(i, dict) else getattr(i, 'item_name', 'Unknown')}: "
+        f"{i.get('quantity', 0) if isinstance(i, dict) else getattr(i, 'quantity', 0)} "
+        f"{i.get('unit', '') if isinstance(i, dict) else getattr(i, 'unit', '')} "
+        f"(Threshold: {i.get('reorder_threshold', 0) if isinstance(i, dict) else getattr(i, 'reorder_threshold', 0)}, "
+        f"Price: RM {i.get('current_price_myr', 0) if isinstance(i, dict) else getattr(i, 'current_price_myr', 0):.2f}, "
+        f"Supplier: {i.get('supplier_name', 'N/A') if isinstance(i, dict) else getattr(i, 'supplier_name', 'N/A')}, "
+        f"Lead Time: {i.get('lead_time_days', 0) if isinstance(i, dict) else getattr(i, 'lead_time_days', 0)} days, "
+        f"Reliability: {i.get('supplier_reliability', 1.0) if isinstance(i, dict) else getattr(i, 'supplier_reliability', 1.0):.2f}, "
+        f"Mfg Cost: RM {i.get('manufacturing_cost', 0) if isinstance(i, dict) else getattr(i, 'manufacturing_cost', 0):.2f}, "
+        f"Shipping: RM {i.get('shipping_cost', 0) if isinstance(i, dict) else getattr(i, 'shipping_cost', 0):.2f})"
+        for i in (getattr(merchant, 'inventory_items', []) or [])
+    )
+
     return f"""
 MERCHANT PROFILE:
 Business name: {merchant.name}
@@ -32,6 +46,8 @@ Phase: {merchant.phase}
 Monthly revenue estimate: RM {getattr(merchant, 'monthly_revenue_estimate', 0) or 0:,.0f}
 Products: {products_str or 'Not specified'}
 Key ingredients: {ingredients_str or 'Not specified'}
+Current Inventory:
+{inventory_str or 'No detailed inventory provided'}
 """.strip()
 
 

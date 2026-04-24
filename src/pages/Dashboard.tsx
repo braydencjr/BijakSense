@@ -137,7 +137,7 @@ export default function Dashboard({ isActive = true }: DashboardProps) {
               Good morning, {MERCHANT_INFO.name}
             </h1>
             <p className="mt-1.5 text-base max-w-xl" style={{ color: T.secondary }}>
-              {insightsLoaded ? `${insights.length} AI insights loaded · Market Analyst active` : 'Loading insights...'}
+              {insightsLoaded ? `${insights.length} AI insights loaded · Market Analyst & Inventory Planner active` : 'Loading insights...'}
             </p>
           </div>
           <Link to="/chat"

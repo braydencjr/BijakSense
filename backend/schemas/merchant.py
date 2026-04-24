@@ -23,6 +23,34 @@ class IngredientResponse(IngredientBase):
     merchant_id: uuid.UUID
     model_config = ConfigDict(from_attributes=True)
 
+class InventoryItemBase(BaseModel):
+    item_name: str
+    quantity: float = 0.0
+    unit: str = "kg"
+    reorder_threshold: float = 10.0
+    current_price_myr: float = 0.0
+    last_restocked: Optional[str] = None
+    supplier_name: Optional[str] = None
+    lead_time_days: int = 3
+    supplier_reliability: float = 1.0
+    manufacturing_cost: float = 0.0
+    shipping_cost: float = 0.0
+
+class PriceHistoryBase(BaseModel):
+    price: float
+    timestamp: str
+
+class PriceHistoryResponse(PriceHistoryBase):
+    id: uuid.UUID
+    inventory_item_id: uuid.UUID
+    model_config = ConfigDict(from_attributes=True)
+
+class InventoryItemResponse(InventoryItemBase):
+    id: uuid.UUID
+    merchant_id: uuid.UUID
+    price_history: List[PriceHistoryResponse] = []
+    model_config = ConfigDict(from_attributes=True)
+
 class MerchantBase(BaseModel):
     owner_name: str
     business_name: str
@@ -38,10 +66,12 @@ class MerchantBase(BaseModel):
 class MerchantCreate(MerchantBase):
     products: List[ProductBase] = []
     ingredients: List[IngredientBase] = []
+    inventory_items: List[InventoryItemBase] = []
 
 class MerchantResponse(MerchantBase):
     id: uuid.UUID
     name: str # Mapping internal business_name to name
     products: List[ProductResponse] = []
     ingredients: List[IngredientResponse] = []
+    inventory_items: List[InventoryItemResponse] = []
     model_config = ConfigDict(from_attributes=True)

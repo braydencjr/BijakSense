@@ -2,7 +2,7 @@
 Chat router — conversational AI endpoint with A2A routing.
 
 Routes questions to the appropriate specialist agent via MCP-style dispatch.
-Currently implements Market Analyst; other agents fall back to general co-pilot.
+Supports Market Analyst, Inventory Planner, and Ops Advisor.
 """
 import logging
 from typing import Any
@@ -12,6 +12,7 @@ from pydantic import BaseModel
 
 from utils.glm_client import call_glm
 from agents.market_analyst import MarketAnalystAgent
+from agents.inventory_planner import InventoryPlannerAgent
 from mock_signals import ALL_SIGNALS
 
 logger = logging.getLogger(__name__)
@@ -23,13 +24,13 @@ MARKET_KEYWORDS = [
     "price", "pricing", "competitor", "matcha", "trend", "demand",
     "market", "promo", "promotion", "launch", "customer", "foot traffic",
     "best selling", "viral", "tiktok", "loyalty", "brown sugar",
-    "restock", "sell", "revenue", "cost", "palm oil", "inflation",
     "opportunity", "expand", "margin", "menu",
 ]
 
 INVENTORY_KEYWORDS = [
     "inventory", "stock", "supply", "ingredient", "order", "reorder",
     "warehouse", "deliver", "supplier", "shortage", "rice", "tea",
+    "restock", "commodity",
 ]
 
 OPS_KEYWORDS = [
@@ -38,21 +39,27 @@ OPS_KEYWORDS = [
 ]
 
 
-def route_to_agent(message: str) -> str:
-    """Determine which agent should handle this question (MCP dispatch)."""
+def route_to_agent(message: str) -> list[str]:
+    """Determine which agent(s) should handle this question (MCP dispatch).
+    Returns a list of agent names — can route to multiple agents."""
     lower = message.lower()
     market_score = sum(1 for kw in MARKET_KEYWORDS if kw in lower)
     inventory_score = sum(1 for kw in INVENTORY_KEYWORDS if kw in lower)
     ops_score = sum(1 for kw in OPS_KEYWORDS if kw in lower)
 
-    if market_score >= max(inventory_score, ops_score, 1):
-        return "market_analyst"
-    if inventory_score > ops_score and inventory_score >= 1:
-        return "inventory_planner"
+    agents = []
+    if market_score >= 1:
+        agents.append("market_analyst")
+    if inventory_score >= 1:
+        agents.append("inventory_planner")
     if ops_score >= 1:
-        return "ops_advisor"
-    # Default: market analyst as the primary agent
-    return "market_analyst"
+        agents.append("ops_advisor")
+
+    # Default: route to both market analyst and inventory planner
+    if not agents:
+        agents = ["market_analyst", "inventory_planner"]
+
+    return agents
 
 
 # ── Merchant context (mock for hackathon) ──────────────────────────
@@ -77,6 +84,7 @@ class MockMerchant:
         {"name": "Mango Fruit Tea", "price": 8.00},
     ]
     ingredients = []
+    inventory_items = []
 
 MOCK_MERCHANT = MockMerchant()
 
@@ -91,7 +99,7 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     reply: str
     agent: str
-    routed_to: str
+    routed_to: list[str]
 
 
 # ── Endpoints ──────────────────────────────────────────────────────
@@ -110,22 +118,58 @@ async def chat(req: ChatRequest) -> ChatResponse:
         for s in ALL_SIGNALS
     )
 
-    # Route to Market Analyst agent (A2A call)
-    if routed_to == "market_analyst":
-        return await _route_market_analyst(req, signal_summary, routed_to)
+    # Multi-agent: collect responses from each routed agent, then synthesize
+    if len(routed_to) == 1:
+        return await _route_single(req, signal_summary, routed_to[0], routed_to)
 
-    # Other agents: use general co-pilot with agent context
-    return await _route_general(req, signal_summary, routed_to)
+    # Multiple agents — get each perspective, then synthesize
+    perspectives = []
+    for agent_name in routed_to:
+        try:
+            resp = await _route_single(req, signal_summary, agent_name, routed_to)
+            perspectives.append(f"[{resp.agent}]: {resp.reply}")
+        except Exception as e:
+            logger.error(f"Agent {agent_name} failed: {e}")
+            perspectives.append(f"[{agent_name}]: Unable to generate response.")
+
+    # Synthesize multi-agent response
+    combined = "\n\n".join(perspectives)
+    system_prompt = (
+        "You are the MerchantMind Orchestrator. You have received perspectives from multiple specialist agents. "
+        "Synthesize them into one clear, actionable response for the merchant. "
+        "Keep it concise and business-focused. Do NOT mention agent names — just give the merchant practical advice."
+    )
+
+    try:
+        reply = await call_glm(
+            system_prompt=system_prompt,
+            user_message=f"Merchant question: {req.message}\n\nAgent perspectives:\n{combined}",
+            temperature=0.3,
+            max_tokens=800,
+        )
+        return ChatResponse(reply=reply, agent="Orchestrator", routed_to=routed_to)
+    except Exception as e:
+        logger.error("Orchestrator synthesis failed: %s", e)
+        # Return the first agent's raw response as fallback
+        return await _route_single(req, signal_summary, routed_to[0], routed_to)
 
 
-async def _route_market_analyst(req: ChatRequest, signal_summary: str, routed_to: str) -> ChatResponse:
+async def _route_single(
+    req: ChatRequest, signal_summary: str, agent_name: str, all_routed: list[str]
+) -> ChatResponse:
+    """Route to a single specialist agent."""
+    if agent_name == "market_analyst":
+        return await _route_market_analyst(req, signal_summary, all_routed)
+    if agent_name == "inventory_planner":
+        return await _route_inventory_planner(req, signal_summary, all_routed)
+    # Other agents: general co-pilot
+    return await _route_general(req, signal_summary, agent_name, all_routed)
+
+
+async def _route_market_analyst(req: ChatRequest, signal_summary: str, routed_to: list[str]) -> ChatResponse:
     """Route to the Market Analyst via A2A message."""
     agent = MarketAnalystAgent()
-
-    # Build conversation history
     history = req.history or []
-
-    # Build context with live signals
     context = {"signals": signal_summary}
 
     try:
@@ -138,11 +182,29 @@ async def _route_market_analyst(req: ChatRequest, signal_summary: str, routed_to
         return ChatResponse(reply=reply, agent="Market Analyst", routed_to=routed_to)
     except Exception as e:
         logger.error("Market Analyst query failed: %s", e)
-        # Fallback to direct GLM call
-        return await _route_general(req, signal_summary, routed_to)
+        return await _route_general(req, signal_summary, "market_analyst", routed_to)
 
 
-async def _route_general(req: ChatRequest, signal_summary: str, routed_to: str) -> ChatResponse:
+async def _route_inventory_planner(req: ChatRequest, signal_summary: str, routed_to: list[str]) -> ChatResponse:
+    """Route to the Inventory Planner via A2A message."""
+    agent = InventoryPlannerAgent()
+    history = req.history or []
+    context = {"signals": signal_summary}
+
+    try:
+        reply = await agent.query(
+            question=req.message,
+            merchant=MOCK_MERCHANT,
+            conversation_history=history,
+            context=context,
+        )
+        return ChatResponse(reply=reply, agent="Inventory Planner", routed_to=routed_to)
+    except Exception as e:
+        logger.error("Inventory Planner query failed: %s", e)
+        return await _route_general(req, signal_summary, "inventory_planner", routed_to)
+
+
+async def _route_general(req: ChatRequest, signal_summary: str, routed_to_name: str, routed_to: list[str]) -> ChatResponse:
     """Fallback general co-pilot response."""
     system_prompt = (
         "You are MerchantMind, an AI co-pilot for SME merchants in Southeast Asia. "
@@ -167,8 +229,8 @@ async def _route_general(req: ChatRequest, signal_summary: str, routed_to: str) 
             temperature=0.3,
             max_tokens=800,
         )
-        agent_name = routed_to.replace("_", " ").title()
-        return ChatResponse(reply=reply, agent=agent_name, routed_to=routed_to)
+        agent_label = routed_to_name.replace("_", " ").title()
+        return ChatResponse(reply=reply, agent=agent_label, routed_to=routed_to)
     except ValueError as e:
         logger.error("Chat AI error: %s", e)
         raise HTTPException(status_code=502, detail="AI returned an unreadable response") from e
