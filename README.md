@@ -32,3 +32,28 @@ View your app in AI Studio: https://ai.studio/apps/7b00d9a4-f961-4cf9-a666-ca001
 4. Set the backend environment variables in a `.env` file, including `ZAI_API_KEY`, `DATABASE_URL`, `REDIS_URL`, and `CORS_ORIGINS`
 5. Start the API server:
    `uvicorn main:app --reload --host 0.0.0.0 --port 8000`
+
+## Data Ingestion
+
+The system uses historical market price data (100M+ records) from DOSM. Follow these steps to populate your database:
+
+1. **Download Data**:
+   ```bash
+   cd backend
+   ./scripts/download_dataset.sh
+   ```
+   *Note: This downloads ~4GB of Parquet files covering 2022-2026.*
+
+2. **Import to PostgreSQL**:
+   ```bash
+   python scripts/import_parquet.py
+   ```
+   *Note: Ensure your `DATABASE_URL` is correctly set in `backend/.env` before running.*
+
+## Credits and License
+
+This project utilizes the **PriceCatcher: Transactional Records** dataset provided by:
+- **Ministry of Domestic Trade**
+- **Department of Statistics Malaysia (DOSM)**
+
+The data is sourced from [OpenDOSM](https://open.dosm.gov.my/data-catalogue/pricecatcher) and is made available under the **Creative Commons Attribution 4.0 International License (CC BY 4.0)**.
