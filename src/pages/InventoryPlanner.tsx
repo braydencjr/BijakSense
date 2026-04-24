@@ -393,7 +393,8 @@ export default function InventoryPlanner() {
               {!editingId && (
                 <div className="bg-neutral-50 p-4 rounded-xl space-y-4 border border-neutral-200">
                   <div className="flex items-center text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-1">
-                    <Sparkles className="w-3 h-3 mr-1" /> DOSM Reference Data
+                    <TrendingUp className="w-3 h-3 mr-1" /> DOSM Reference Data
+
                   </div>
                   
                   <div>
