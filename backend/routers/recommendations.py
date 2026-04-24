@@ -1,5 +1,5 @@
 """
-MerchantMind — Recommendations Router (Member B: Market Analyst)
+BijakSense — Recommendations Router (Member B: Market Analyst)
 
 Provides endpoints to fetch recommendation history and update statuses.
 Supports the frontend Recommendations.tsx log page.

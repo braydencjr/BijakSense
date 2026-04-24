@@ -1,5 +1,5 @@
 """
-MerchantMind — Models for Merchant, Products, and Ingredients
+BijakSense — Models for Merchant, Products, and Ingredients
 """
 from sqlalchemy import Column, String, Float, Integer, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID

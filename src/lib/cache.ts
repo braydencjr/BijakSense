@@ -13,7 +13,7 @@ interface CacheOptions {
 
 const cache: Record<string, CacheEntry<unknown>> = {};
 const DEFAULT_TTL = 5 * 60 * 1000; // 5 min cache
-const STORAGE_PREFIX = 'merchantmind:cache:';
+const STORAGE_PREFIX = 'bijaksense:cache:';
 
 function isExpired(entry: CacheEntry<unknown>) {
   if (entry.ttlMs === null) return false;

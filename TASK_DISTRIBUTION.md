@@ -1,4 +1,4 @@
-# MerchantMind — Team Task Distribution
+# BijakSense — Team Task Distribution
 > **UMHackathon 2026** · 4-member team · Python 3.11 + FastAPI + Z.AI GLM + A2A Architecture
 
 ---

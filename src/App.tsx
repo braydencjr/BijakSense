@@ -4,10 +4,9 @@ import AppLayout from './components/layout/AppLayout';
 import Onboarding from './pages/Onboarding';
 import WorkspaceTabs from './pages/WorkspaceTabs';
 import Chat from './pages/Chat';
-import Recommendations from './pages/Recommendations';
 import InventoryPlanner from './pages/InventoryPlanner';
 
-const ONBOARDING_COMPLETE_KEY = 'merchantmind:onboardingComplete';
+const ONBOARDING_COMPLETE_KEY = 'bijaksense:onboardingComplete';
 
 function readOnboardingFlag() {
   try {
@@ -32,18 +31,18 @@ export default function App() {
           path="/onboarding"
           element={
             onboardingComplete
-              ? <Navigate to="/dashboard" replace />
+              ? <Navigate to="/map" replace />
               : <Onboarding onComplete={handleOnboardingComplete} />
           }
         />
 
         {/* Main Application Layout */}
         <Route element={onboardingComplete ? <AppLayout /> : <Navigate to="/onboarding" replace />}>
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/" element={<Navigate to="/map" replace />} />
           <Route path="/map" element={<WorkspaceTabs />} />
           <Route path="/dashboard" element={<WorkspaceTabs />} />
+          <Route path="/recommendations" element={<WorkspaceTabs />} />
           <Route path="/chat" element={<Chat />} />
-          <Route path="/recommendations" element={<Recommendations />} />
 
           {/* Legacy routes */}
           <Route path="/inventory" element={<InventoryPlanner />} />
@@ -55,7 +54,7 @@ export default function App() {
 
         <Route
           path="*"
-          element={<Navigate to={onboardingComplete ? '/dashboard' : '/onboarding'} replace />}
+          element={<Navigate to={onboardingComplete ? '/map' : '/onboarding'} replace />}
         />
       </Routes>
     </BrowserRouter>

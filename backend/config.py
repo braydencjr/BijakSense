@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     commodity_price_api_key: str = ""
 
     # Database
-    database_url: str = "postgresql+asyncpg://merchantmind:password@localhost:5432/merchantmind"
+    database_url: str = "postgresql+asyncpg://bijaksense:password@localhost:5432/bijaksense"
 
     # Redis
     redis_url: str = "redis://localhost:6379/0"

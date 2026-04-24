@@ -1,5 +1,5 @@
 """
-MerchantMind — Signals Router
+BijakSense — Signals Router
 
 Ingests world signals, serves signal data to the Intelligence Map,
 and routes signals to the Market Analyst for live processing.

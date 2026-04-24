@@ -106,7 +106,7 @@ class ChatResponse(BaseModel):
 
 @router.post("", response_model=ChatResponse)
 async def chat(req: ChatRequest) -> ChatResponse:
-    """Send a message to the MerchantMind co-pilot with A2A routing."""
+    """Send a message to the BijakSense co-pilot with A2A routing."""
     if not req.message.strip():
         raise HTTPException(status_code=400, detail="Message cannot be empty")
 
@@ -135,7 +135,7 @@ async def chat(req: ChatRequest) -> ChatResponse:
     # Synthesize multi-agent response
     combined = "\n\n".join(perspectives)
     system_prompt = (
-        "You are the MerchantMind Orchestrator. You have received perspectives from multiple specialist agents. "
+        "You are the BijakSense Orchestrator. You have received perspectives from multiple specialist agents. "
         "Synthesize them into one clear, actionable response for the merchant. "
         "Keep it concise and business-focused. Do NOT mention agent names — just give the merchant practical advice."
     )
@@ -207,7 +207,7 @@ async def _route_inventory_planner(req: ChatRequest, signal_summary: str, routed
 async def _route_general(req: ChatRequest, signal_summary: str, routed_to_name: str, routed_to: list[str]) -> ChatResponse:
     """Fallback general co-pilot response."""
     system_prompt = (
-        "You are MerchantMind, an AI co-pilot for SME merchants in Southeast Asia. "
+        "You are BijakSense, an AI co-pilot for SME merchants in Southeast Asia. "
         "The merchant is Siti, running Siti's Bubble Tea in Petaling Jaya, Malaysia. "
         "Respond concisely, professionally. Keep answers business-focused, practical, and data-driven."
     )
@@ -215,7 +215,7 @@ async def _route_general(req: ChatRequest, signal_summary: str, routed_to_name: 
     history_block = ""
     if req.history:
         lines = [
-            f"{'Merchant' if m.get('role') == 'user' else 'MerchantMind'}: {m.get('content', '')}"
+            f"{'Merchant' if m.get('role') == 'user' else 'BijakSense'}: {m.get('content', '')}"
             for m in req.history[-10:]
         ]
         history_block = "Conversation so far:\n" + "\n".join(lines) + "\n\n"

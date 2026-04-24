@@ -1,49 +1,58 @@
 import React from 'react';
 import { INGREDIENTS, MERCHANT_INFO } from '../data/mock';
 import { getCached, setCache, isCached } from '../lib/cache';
-import {
-  Sparkles, ArrowRight, CheckCircle2, Zap, BarChart2, ShieldAlert,
-  TrendingUp, AlertTriangle, Target,
-} from 'lucide-react';
+import { ArrowRight, CheckCircle, EyeOff, Bell, ChevronDown, ChevronUp, AlertTriangle, TrendingUp, Package } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 
 interface DashboardProps {
   isActive?: boolean;
 }
 
 const T = {
-  base:     '#09090F',
-  s1:       '#13141A',
-  s2:       '#1C1D25',
-  s3:       '#24252F',
-  border:   'rgba(255,255,255,0.06)',
-  borderMd: 'rgba(255,255,255,0.11)',
-  primary:  '#ECEEF2',
-  secondary:'#8B8FA8',
-  muted:    '#52556A',
-  teal:     '#2DD4BF',
-  tealDim:  'rgba(45,212,191,0.14)',
-  amber:    '#F59E0B',
-  amberDim: 'rgba(245,158,11,0.12)',
-  ruby:     '#F43F5E',
-  rubyDim:  'rgba(244,63,94,0.1)',
+  base: '#0C0D10',
+  s1: '#111316',
+  s2: '#16181C',
+  s3: '#1C1E23',
+  s4: '#22252B',
+  border: 'rgba(255,255,255,0.05)',
+  borderMd: 'rgba(255,255,255,0.09)',
+  primary: '#F0F1F4',
+  secondary: '#7A7F96',
+  muted: '#44475A',
+  teal: '#2DD4BF',
+  tealDim: 'rgba(45,212,191,0.08)',
+  amber: '#F59E0B',
+  amberDim: 'rgba(245,158,11,0.08)',
+  ruby: '#F43F5E',
+  rubyDim: 'rgba(244,63,94,0.07)',
+  green: '#22C55E',
+  greenDim: 'rgba(34,197,94,0.08)',
 };
 
 const API = 'http://localhost:8000';
 const INSIGHTS_CACHE_KEY = 'insights:v3';
 const RECS_CACHE_KEY = 'recs:v1';
+const DISMISSED_KEY = 'dismissed:v1';
 
-function urgencyAccent(urgency: string) {
-  if (urgency === 'red')   return { color: T.ruby,  dim: T.rubyDim,  border: 'rgba(244,63,94,0.22)' };
-  if (urgency === 'amber') return { color: T.amber, dim: T.amberDim, border: 'rgba(245,158,11,0.2)' };
-  return                          { color: T.teal,  dim: T.tealDim,  border: 'rgba(45,212,191,0.18)' };
+type InsightStatus = 'active' | 'resolved' | 'ignored';
+
+function urgencyColor(urgency: string) {
+  if (urgency === 'red') return { dot: T.ruby, bg: T.rubyDim, text: '#FB7185' };
+  if (urgency === 'amber') return { dot: T.amber, bg: T.amberDim, text: '#FCD34D' };
+  return { dot: T.teal, bg: T.tealDim, text: T.teal };
+}
+
+function urgencyLabel(urgency: string) {
+  if (urgency === 'red') return 'Action needed';
+  if (urgency === 'amber') return 'Watch';
+  return 'Opportunity';
 }
 
 function urgencyIcon(urgency: string) {
-  if (urgency === 'red')   return <AlertTriangle className="w-3 h-3" style={{ color: T.ruby }} />;
-  if (urgency === 'amber') return <TrendingUp className="w-3 h-3" style={{ color: T.amber }} />;
-  return <Target className="w-3 h-3" style={{ color: T.teal }} />;
+  if (urgency === 'red') return <AlertTriangle style={{ width: 14, height: 14 }} />;
+  if (urgency === 'amber') return <Bell style={{ width: 14, height: 14 }} />;
+  return <TrendingUp style={{ width: 14, height: 14 }} />;
 }
 
 export default function Dashboard({ isActive = true }: DashboardProps) {
@@ -53,32 +62,35 @@ export default function Dashboard({ isActive = true }: DashboardProps) {
   const [hasInitialized, setHasInitialized] = React.useState(
     isActive || isCached(INSIGHTS_CACHE_KEY) || isCached(RECS_CACHE_KEY)
   );
+  const [expandedInsight, setExpandedInsight] = React.useState<string | null>(null);
+  const [statuses, setStatuses] = React.useState<Record<string, InsightStatus>>(() => {
+    try { return JSON.parse(localStorage.getItem(DISMISSED_KEY) || '{}'); } catch { return {}; }
+  });
+
+  const setStatus = (id: string, status: InsightStatus) => {
+    setStatuses(prev => {
+      const next = { ...prev, [id]: status };
+      try { localStorage.setItem(DISMISSED_KEY, JSON.stringify(next)); } catch { }
+      return next;
+    });
+    if (expandedInsight === id) setExpandedInsight(null);
+  };
 
   React.useEffect(() => {
     if (isActive) setHasInitialized(true);
   }, [isActive]);
 
   React.useEffect(() => {
-    if (!hasInitialized) return;
-    if (isCached(RECS_CACHE_KEY)) return;
-
+    if (!hasInitialized || isCached(RECS_CACHE_KEY)) return;
     fetch(`${API}/api/recommendations?status=all`)
       .then(r => r.json())
-      .then(data => {
-        const arr = Array.isArray(data) ? data : [];
-        setLiveRecs(arr);
-        setCache(RECS_CACHE_KEY, arr, { ttlMs: null });
-      })
-      .catch(() => {});
+      .then(data => { const arr = Array.isArray(data) ? data : []; setLiveRecs(arr); setCache(RECS_CACHE_KEY, arr, { ttlMs: null }); })
+      .catch(() => { });
   }, [hasInitialized]);
 
   React.useEffect(() => {
     if (!hasInitialized) return;
-    if (isCached(INSIGHTS_CACHE_KEY)) {
-      setInsightsLoaded(true);
-      return;
-    }
-
+    if (isCached(INSIGHTS_CACHE_KEY)) { setInsightsLoaded(true); return; }
     fetch(`${API}/api/insights`)
       .then(r => r.json())
       .then(data => {
@@ -87,197 +99,261 @@ export default function Dashboard({ isActive = true }: DashboardProps) {
         setCache(INSIGHTS_CACHE_KEY, arr, { ttlMs: null });
         setInsightsLoaded(true);
       })
-      .catch(() => {
-        setInsightsLoaded(true);
-      });
+      .catch(() => setInsightsLoaded(true));
   }, [hasInitialized]);
 
   const criticalIngredients = INGREDIENTS.filter(i => i.alert || i.stockDays <= i.reorderPoint).slice(0, 3);
-  const redCount = insights.filter(i => i.urgency === 'red').length;
-  const amberCount = insights.filter(i => i.urgency === 'amber').length;
 
-  const kpis = [
-    {
-      icon: <Zap className="w-4 h-4" />,
-      label: 'AI Insights',
-      value: String(insights.length),
-      sub: `${redCount} urgent · ${amberCount} watch`,
-      accent: T.teal,
-      dim: T.tealDim,
-    },
-    {
-      icon: <ShieldAlert className="w-4 h-4" />,
-      label: 'Supply Risk',
-      value: criticalIngredients.length > 0 ? 'Elevated' : 'Moderate',
-      sub: `${criticalIngredients.length} ingredients near threshold`,
-      accent: T.amber,
-      dim: T.amberDim,
-    },
-    {
-      icon: <BarChart2 className="w-4 h-4" />,
-      label: 'Competitor Threat',
-      value: 'High',
-      sub: '2 competitors with active promos within 1.5km',
-      accent: T.ruby,
-      dim: T.rubyDim,
-    },
-  ];
+  const sortedInsights = [...insights].sort((a, b) => {
+    const order: Record<string, number> = { red: 0, amber: 1, teal: 2 };
+    return (order[a.urgency] ?? 3) - (order[b.urgency] ?? 3);
+  });
+  const activeInsights = sortedInsights.filter(i => !statuses[i.id] || statuses[i.id] === 'active');
+  const resolvedCount = Object.values(statuses).filter(s => s === 'resolved').length;
+  const ignoredCount = Object.values(statuses).filter(s => s === 'ignored').length;
+
+  const redCount = activeInsights.filter(i => i.urgency === 'red').length;
+  const amberCount = activeInsights.filter(i => i.urgency === 'amber').length;
 
   return (
-    <div className="flex-1 h-full overflow-y-auto font-sans" style={{ background: T.base, color: T.primary }}>
-      <header className="px-8 py-5 shrink-0" style={{ background: T.s1, borderBottom: `1px solid ${T.border}` }}>
-        <div className="max-w-6xl mx-auto flex items-center justify-between gap-6">
+    <div className="flex-1 h-full overflow-y-auto" style={{ background: T.base, color: T.primary, fontFamily: "'DM Sans', system-ui, sans-serif" }}>
+
+      {/* ── HEADER ── */}
+      <header style={{ borderBottom: `1px solid ${T.border}`, background: T.s1 }}>
+        <div style={{ maxWidth: 1280, width: '100%', margin: '0 auto', padding: '32px 40px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24 }}>
           <div>
-            <div className="flex items-center gap-2 mb-1.5">
-              <motion.div animate={{ opacity: [1, 0.4, 1] }} transition={{ duration: 2.4, repeat: Infinity }}
-                className="w-2 h-2 rounded-full" style={{ background: T.teal, boxShadow: `0 0 6px ${T.teal}` }} />
-              <span className="text-xs uppercase tracking-[0.18em] font-bold" style={{ color: T.teal }}>Command Center</span>
-            </div>
-            <h1 className="text-3xl font-semibold tracking-tight" style={{ color: T.primary }}>
+            <p style={{ fontSize: 13, color: T.muted, letterSpacing: '0.12em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 8 }}>
+              {new Date().toLocaleDateString('en-MY', { weekday: 'long', day: 'numeric', month: 'long' })}
+            </p>
+            <h1 style={{ fontSize: 28, fontWeight: 600, color: T.primary, margin: 0, letterSpacing: '-0.02em' }}>
               Good morning, {MERCHANT_INFO.name}
             </h1>
-            <p className="mt-1.5 text-base max-w-xl" style={{ color: T.secondary }}>
-              {insightsLoaded ? `${insights.length} AI insights loaded · Market Analyst & Inventory Planner active` : 'Loading insights...'}
-            </p>
           </div>
           <Link to="/chat"
-            className="inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold shrink-0 transition-opacity hover:opacity-90"
-            style={{ background: `linear-gradient(135deg, ${T.teal}, #0EA5E9)`, color: '#fff', boxShadow: `0 4px 24px rgba(45,212,191,0.28)` }}>
-            Ask Co-Pilot <ArrowRight className="w-4 h-4" />
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 10, padding: '12px 24px', borderRadius: 12, fontSize: 15, fontWeight: 600, color: '#fff', background: T.teal, textDecoration: 'none', flexShrink: 0, letterSpacing: '-0.01em' }}>
+            Ask Co-Pilot <ArrowRight style={{ width: 18, height: 18 }} />
           </Link>
         </div>
       </header>
 
-      <div className="p-8">
-        <div className="max-w-6xl mx-auto space-y-7">
-          <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {kpis.map((card, i) => (
-              <motion.div key={i} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.07 }}
-                className="rounded-2xl p-5 flex flex-col gap-3" style={{ background: T.s1, border: `1px solid ${T.border}` }}>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs uppercase tracking-widest font-bold" style={{ color: T.muted }}>{card.label}</span>
-                  <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: card.dim, color: card.accent }}>{card.icon}</div>
-                </div>
-                <div>
-                  <div className="text-4xl font-bold tracking-tight" style={{ color: T.primary }}>{card.value}</div>
-                  <div className="text-sm mt-1" style={{ color: T.secondary }}>{card.sub}</div>
-                </div>
-                <div className="h-0.5 rounded-full mt-auto" style={{ background: `linear-gradient(90deg, ${card.accent}55, transparent)` }} />
-              </motion.div>
-            ))}
-          </section>
+      <div style={{ maxWidth: 1280, width: '100%', margin: '0 auto', padding: '40px 48px 80px' }}>
 
-          <section className="grid grid-cols-1 xl:grid-cols-[1.6fr_1fr] gap-5">
-            <div className="rounded-2xl p-6" style={{ background: T.s1, border: `1px solid ${T.border}` }}>
-              <div className="flex items-center justify-between mb-5">
-                <h2 className="text-lg font-semibold" style={{ color: T.primary }}>Market Analyst Insights</h2>
-                <Link to="/map" className="text-sm font-semibold transition-opacity hover:opacity-80 flex items-center gap-1" style={{ color: T.teal }}>
-                  View Map <ArrowRight className="w-3.5 h-3.5" />
-                </Link>
+        {/* ── SUMMARY ROW ── */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 40 }}>
+          {[
+            {
+              label: 'Needs attention',
+              value: redCount,
+              detail: `${amberCount} to watch`,
+              color: redCount > 0 ? T.ruby : T.muted,
+            },
+            {
+              label: 'Supply risk items',
+              value: criticalIngredients.length,
+              detail: criticalIngredients.length > 0 ? criticalIngredients.map(i => i.name).join(', ') : 'All stocked',
+              color: criticalIngredients.length > 0 ? T.amber : T.green,
+            },
+            {
+              label: 'Resolved today',
+              value: resolvedCount + ignoredCount,
+              detail: `${resolvedCount} resolved · ${ignoredCount} ignored`,
+              color: T.teal,
+            },
+          ].map((card, i) => (
+            <motion.div key={i} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.08 }}
+              style={{ background: T.s1, border: `1px solid ${T.border}`, borderRadius: 16, padding: '24px 28px' }}>
+              <p style={{ fontSize: 12, color: T.muted, letterSpacing: '0.1em', textTransform: 'uppercase', fontWeight: 600, margin: '0 0 12px' }}>{card.label}</p>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 8 }}>
+                <span style={{ fontSize: 40, fontWeight: 700, color: card.color, letterSpacing: '-0.03em', lineHeight: 1 }}>{card.value}</span>
               </div>
+              <p style={{ fontSize: 14, color: T.muted, margin: 0, lineHeight: 1.5 }}>{card.detail}</p>
+            </motion.div>
+          ))}
+        </div>
 
-              {!insightsLoaded ? (
-                <div className="rounded-xl p-5 text-sm" style={{ background: T.s2, border: `1px solid ${T.border}`, color: T.secondary }}>
-                  <div className="flex items-center gap-2">
-                    <motion.div animate={{ opacity: [1, 0.4, 1] }} transition={{ duration: 1.5, repeat: Infinity }}
-                      className="w-2 h-2 rounded-full" style={{ background: T.teal, boxShadow: `0 0 6px ${T.teal}` }} />
-                    Generating insights from Market Analyst...
-                  </div>
+        {/* ── MAIN LAYOUT ── */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 340px', gap: 24, alignItems: 'start' }}>
+
+          {/* LEFT: Insight list */}
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+              <h2 style={{ fontSize: 14, fontWeight: 600, color: T.secondary, letterSpacing: '0.08em', textTransform: 'uppercase', margin: 0 }}>
+                Insights · {activeInsights.length} active
+              </h2>
+              <Link to="/map" style={{ fontSize: 14, color: T.teal, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 6, fontWeight: 600 }}>
+                View map <ArrowRight style={{ width: 16, height: 16 }} />
+              </Link>
+            </div>
+
+            {!insightsLoaded ? (
+              <div style={{ background: T.s1, border: `1px solid ${T.border}`, borderRadius: 16, padding: '24px 32px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 15, color: T.secondary }}>
+                  <motion.div animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 1.4, repeat: Infinity }}
+                    style={{ width: 8, height: 8, borderRadius: '50%', background: T.teal }} />
+                  Generating insights...
                 </div>
-              ) : (
-                <div className="space-y-3">
-                  {insights.map((insight: any, idx: number) => {
-                    const acc = urgencyAccent(insight.urgency);
-                    return (
-                      <motion.div key={insight.id} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: idx * 0.05 }}
-                        className="rounded-xl p-4" style={{ background: T.s2, border: `1px solid ${acc.border}` }}>
-                        <div className="flex items-center justify-between gap-3 mb-2">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <div className="w-2 h-2 rounded-full shrink-0" style={{ background: acc.color, boxShadow: `0 0 7px ${acc.color}` }} />
-                            {urgencyIcon(insight.urgency)}
-                            <span className="text-xs uppercase tracking-widest font-bold truncate" style={{ color: T.muted }}>{insight.urgency}</span>
+              </div>
+            ) : activeInsights.length === 0 ? (
+              <div style={{ background: T.s1, border: `1px solid ${T.border}`, borderRadius: 16, padding: '40px 32px', textAlign: 'center' }}>
+                <CheckCircle style={{ width: 24, height: 24, color: T.green, margin: '0 auto 12px' }} />
+                <p style={{ fontSize: 16, color: T.secondary, margin: 0 }}>All clear — no active insights right now.</p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {activeInsights.map((insight: any, idx: number) => {
+                  const isExpanded = expandedInsight === insight.id;
+                  const uc = urgencyColor(insight.urgency);
+                  const rank = idx + 1;
+
+                  return (
+                    <motion.div key={insight.id}
+                      initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.04 }}
+                      layout
+                      style={{ background: T.s1, border: `1px solid ${T.border}`, borderRadius: 16, overflow: 'hidden' }}>
+
+                      <div
+                        onClick={() => setExpandedInsight(isExpanded ? null : insight.id)}
+                        style={{ display: 'flex', alignItems: 'flex-start', gap: 18, padding: '20px 24px', cursor: 'pointer' }}>
+
+                        <div style={{ flexShrink: 0, width: 32, height: 32, borderRadius: 10, background: T.s3, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: rank <= 2 ? uc.text : T.muted, marginTop: 2 }}>
+                          {rank}
+                        </div>
+
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: uc.text, background: uc.bg, padding: '4px 10px', borderRadius: 6 }}>
+                              {urgencyIcon(insight.urgency)}
+                              {urgencyLabel(insight.urgency)}
+                            </span>
+                            <span style={{ fontSize: 13, color: T.muted, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {insight.headline}
+                            </span>
                           </div>
-                          <Sparkles className="w-3 h-3" style={{ color: acc.color }} />
+
+                          <p style={{ fontSize: 17, fontWeight: 500, color: T.primary, margin: 0, lineHeight: 1.5, letterSpacing: '-0.01em' }}>
+                            {insight.action}
+                          </p>
                         </div>
 
-                        <h3 className="font-semibold text-base leading-snug" style={{ color: T.primary }}>{insight.headline}</h3>
+                        <button style={{ flexShrink: 0, background: 'none', border: 'none', cursor: 'pointer', color: T.muted, padding: 6, marginTop: 4 }}>
+                          {isExpanded ? <ChevronUp style={{ width: 20, height: 20 }} /> : <ChevronDown style={{ width: 20, height: 20 }} />}
+                        </button>
+                      </div>
 
-                        <div className="mt-2 rounded-lg p-2.5 text-sm" style={{ background: 'rgba(45,212,191,0.06)', border: '1px solid rgba(45,212,191,0.12)' }}>
-                          <span className="font-bold text-[10px] uppercase" style={{ color: T.teal }}>Action: </span>
-                          <span style={{ color: T.teal }}>{insight.action}</span>
-                        </div>
+                      <AnimatePresence>
+                        {isExpanded && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.2 }}
+                            style={{ overflow: 'hidden' }}>
+                            <div style={{ borderTop: `1px solid ${T.border}`, padding: '20px 24px 24px 74px' }}>
 
-                        {insight.steps && insight.steps.length > 0 && (
-                          <div className="mt-2 space-y-1.5">
-                            {insight.steps.map((step: string, si: number) => (
-                              <div key={si} className="flex items-start gap-2 text-xs" style={{ color: T.secondary }}>
-                                <span className="shrink-0 w-4 h-4 rounded flex items-center justify-center text-[9px] font-bold" style={{ background: T.s3, color: T.muted }}>{si + 1}</span>
-                                {step}
+                              {insight.reasoning && (
+                                <div style={{ marginBottom: insight.steps?.length ? 20 : 0 }}>
+                                  <p style={{ fontSize: 12, fontWeight: 600, color: T.muted, letterSpacing: '0.08em', textTransform: 'uppercase', margin: '0 0 10px' }}>Why this matters</p>
+                                  <p style={{ fontSize: 15, color: T.secondary, margin: 0, lineHeight: 1.7 }}>{insight.reasoning}</p>
+                                </div>
+                              )}
+
+                              {insight.steps?.length > 0 && (
+                                <div style={{ marginTop: 20 }}>
+                                  <p style={{ fontSize: 12, fontWeight: 600, color: T.muted, letterSpacing: '0.08em', textTransform: 'uppercase', margin: '0 0 12px' }}>Suggested steps</p>
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                    {insight.steps.map((step: string, si: number) => (
+                                      <div key={si} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, fontSize: 15, color: T.secondary }}>
+                                        <span style={{ flexShrink: 0, width: 22, height: 22, borderRadius: 6, background: T.s3, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: T.muted, marginTop: 2 }}>{si + 1}</span>
+                                        <span style={{ lineHeight: 1.6 }}>{step}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); setStatus(insight.id, 'resolved'); }}
+                                  style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 14, fontWeight: 600, padding: '10px 20px', borderRadius: 10, border: `1px solid rgba(34,197,94,0.3)`, background: 'rgba(34,197,94,0.07)', color: T.green, cursor: 'pointer' }}>
+                                  <CheckCircle style={{ width: 16, height: 16 }} /> Mark resolved
+                                </button>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); setStatus(insight.id, 'ignored'); }}
+                                  style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 14, fontWeight: 600, padding: '10px 20px', borderRadius: 10, border: `1px solid ${T.border}`, background: T.s3, color: T.muted, cursor: 'pointer' }}>
+                                  <EyeOff style={{ width: 16, height: 16 }} /> Ignore
+                                </button>
                               </div>
-                            ))}
-                          </div>
+                            </div>
+                          </motion.div>
                         )}
+                      </AnimatePresence>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
 
-                        <div className="mt-3 pt-3 text-xs" style={{ borderTop: `1px solid ${T.border}`, color: T.secondary }}>
-                          <span className="font-bold" style={{ color: T.muted }}>Why: </span>{insight.reasoning}
+          {/* RIGHT SIDEBAR */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+            {/* Inventory alerts */}
+            <div style={{ background: T.s1, border: `1px solid ${T.border}`, borderRadius: 16, padding: '24px 28px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
+                <Package style={{ width: 16, height: 16, color: T.muted }} />
+                <h3 style={{ fontSize: 12, fontWeight: 600, color: T.muted, letterSpacing: '0.1em', textTransform: 'uppercase', margin: 0 }}>Inventory</h3>
+              </div>
+              {criticalIngredients.length === 0 ? (
+                <p style={{ fontSize: 14, color: T.muted, margin: 0 }}>All ingredients stocked.</p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  {criticalIngredients.map((item: any) => {
+                    const pct = Math.max(0, Math.min(100, (item.stockDays / 30) * 100));
+                    const barColor = pct < 20 ? T.ruby : pct < 40 ? T.amber : T.teal;
+                    return (
+                      <div key={item.id}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                          <span style={{ fontSize: 14, fontWeight: 600, color: T.primary }}>{item.name}</span>
+                          <span style={{ fontSize: 13, color: T.muted }}>{item.stockDays}d left</span>
                         </div>
-                      </motion.div>
+                        <div style={{ height: 6, borderRadius: 3, background: T.s3, overflow: 'hidden' }}>
+                          <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ delay: 0.3, duration: 0.5 }}
+                            style={{ height: '100%', borderRadius: 3, background: barColor }} />
+                        </div>
+                      </div>
                     );
                   })}
                 </div>
               )}
             </div>
 
-            <div className="space-y-5">
-              <div className="rounded-2xl p-5" style={{ background: T.s1, border: `1px solid ${T.border}` }}>
-                <h3 className="text-base font-semibold mb-4" style={{ color: T.primary }}>Signal Summary</h3>
-                <div className="space-y-3.5">
-                  {insights.slice(0, 7).map((ins: any) => {
-                    const dotColor = ins.urgency === 'red' ? T.ruby : ins.urgency === 'amber' ? T.amber : T.teal;
-                    return (
-                      <div key={ins.id} className="flex items-start gap-3">
-                        <div className="w-7 h-7 rounded-lg flex items-center justify-center mt-0.5 shrink-0"
-                          style={{ background: T.s2, border: `1px solid ${T.borderMd}` }}>
-                          {urgencyIcon(ins.urgency)}
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium leading-snug" style={{ color: T.primary }}>{ins.headline}</p>
-                          <p className="text-xs mt-0.5 flex items-center gap-1" style={{ color: T.muted }}>
-                            <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ background: dotColor }} />
-                            {ins.urgency}
-                          </p>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="rounded-2xl p-5" style={{ background: T.s1, border: `1px solid ${T.border}` }}>
-                <h3 className="text-base font-semibold mb-4" style={{ color: T.primary }}>What Your AI Did</h3>
-                <div className="space-y-3">
-                  {[
-                    `${insights.length} personal insights generated`,
-                    '5 regional signals tracked across SEA',
-                    '8 local signals within 5km radius',
-                    'Intelligence Map synced with live data',
-                    `${liveRecs.length} recommendation logs available`,
-                  ].map((line, i) => (
-                    <motion.div key={i} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 + i * 0.1 }}
-                      className="flex items-start gap-2.5 text-sm" style={{ color: T.secondary }}>
-                      <CheckCircle2 className="w-3.5 h-3.5 mt-0.5 shrink-0" style={{ color: T.teal }} />
-                      {line}
-                    </motion.div>
-                  ))}
-                </div>
-                <div className="mt-4 pt-4" style={{ borderTop: `1px solid ${T.border}` }}>
-                  <Link to="/map" className="inline-flex items-center gap-1.5 text-sm font-semibold transition-opacity hover:opacity-80" style={{ color: T.teal }}>
-                    View Intelligence Map <ArrowRight className="w-3.5 h-3.5" />
-                  </Link>
-                </div>
+            {/* Quick stats */}
+            <div style={{ background: T.s1, border: `1px solid ${T.border}`, borderRadius: 16, padding: '24px 28px' }}>
+              <h3 style={{ fontSize: 12, fontWeight: 600, color: T.muted, letterSpacing: '0.1em', textTransform: 'uppercase', margin: '0 0 18px' }}>Today's signals</h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {[
+                  { label: 'Total insights', value: insights.length, color: T.primary },
+                  { label: 'Action needed', value: redCount, color: redCount > 0 ? T.ruby : T.muted },
+                  { label: 'Watching', value: amberCount, color: amberCount > 0 ? T.amber : T.muted },
+                  { label: 'Resolved', value: resolvedCount, color: T.green },
+                ].map(row => (
+                  <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: 14, color: T.muted }}>{row.label}</span>
+                    <span style={{ fontSize: 15, fontWeight: 600, color: row.color }}>{row.value}</span>
+                  </div>
+                ))}
               </div>
             </div>
-          </section>
+
+            {/* AI summary */}
+            <div style={{ background: T.s1, border: `1px solid ${T.border}`, borderRadius: 16, padding: '24px 28px' }}>
+              <p style={{ fontSize: 14, color: T.secondary, margin: '0 0 16px', lineHeight: 1.6 }}>
+                Your AI processed <strong style={{ color: T.primary, fontWeight: 600 }}>{insights.length + liveRecs.length}</strong> signals and ranked {insights.length} insights by priority.
+              </p>
+              <Link to="/map" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 14, fontWeight: 600, color: T.teal, textDecoration: 'none' }}>
+                Intelligence map <ArrowRight style={{ width: 14, height: 14 }} />
+              </Link>
+            </div>
+          </div>
+
         </div>
       </div>
     </div>

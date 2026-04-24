@@ -1,7 +1,14 @@
 {
   "permissions": {
     "allow": [
-      "Bash(/Users/braydencjr/Desktop/UMHackathon2026/backend/venv/bin/python3 -c ' *)"
+      "Bash(/Users/braydencjr/Desktop/UMHackathon2026/backend/venv/bin/python3 -c ' *)",
+      "Bash(git add *)",
+      "Bash(python -c \"from routers.chat import router; from routers.dashboard import router; from routers.merchant import router; from routers.inventory import router; from routers.insights import router; print\\('All router imports OK'\\)\")",
+      "Bash(python3 -c \"from routers.chat import router; print\\('chat OK'\\)\")",
+      "Bash(python3 -m py_compile routers/chat.py)",
+      "Bash(python3 -m py_compile routers/dashboard.py)",
+      "Bash(python3 -m py_compile routers/merchant.py)",
+      "Bash(python3 -m py_compile main.py)"
     ]
   }
 }

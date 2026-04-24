@@ -1,5 +1,5 @@
 """
-MerchantMind — Prompt builder utilities.
+BijakSense — Prompt builder utilities.
 
 Each GLM call is composed of four blocks:
   1. Agent identity block    — who the agent is

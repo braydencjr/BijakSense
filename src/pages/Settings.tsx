@@ -104,7 +104,7 @@ export default function Settings() {
             ))}
           </div>
           <div className="px-6 py-3 text-sm" style={{ background: 'rgba(0,209,193,0.05)', borderTop: '1px solid rgba(0,209,193,0.15)', color: '#9CA3AF' }}>
-            MerchantMind is running in <b style={{ color: '#00D1C1' }}>Simulation Mode</b>. Connect your POS or Bank account for real-time insights.
+            BijakSense is running in <b style={{ color: '#00D1C1' }}>Simulation Mode</b>. Connect your POS or Bank account for real-time insights.
           </div>
         </section>
 

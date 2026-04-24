@@ -1,29 +1,87 @@
 import React, { useState, useEffect } from 'react';
-import { ListOrdered, CheckCircle2 } from 'lucide-react';
-import { cn } from '../lib/utils';
+import { CheckCircle2 } from 'lucide-react';
 import { motion } from 'motion/react';
+import { getCached, isCached, setCache } from '../lib/cache';
 
-export default function Recommendations() {
+interface RecommendationsProps {
+  isActive?: boolean;
+}
+
+const API = 'http://localhost:8000';
+const INSIGHTS_CACHE_KEY = 'insights:v3';
+const DISMISSED_KEY = 'dismissed:v1';
+const FILTERS = ['all', 'pending', 'acted_on', 'dismissed'] as const;
+const T = {
+  base: '#0C0D10',
+  s1: '#111316',
+  s2: '#16181C',
+  border: 'rgba(255,255,255,0.05)',
+  primary: '#F0F1F4',
+  secondary: '#7A7F96',
+  muted: '#44475A',
+  teal: '#2DD4BF',
+  tealDim: 'rgba(45,212,191,0.08)',
+  amber: '#F59E0B',
+  amberDim: 'rgba(245,158,11,0.08)',
+  ruby: '#F43F5E',
+  rubyDim: 'rgba(244,63,94,0.07)',
+};
+
+export default function Recommendations({ isActive = true }: RecommendationsProps) {
   const [filter, setFilter] = useState('all');
-  const [historical, setHistorical] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [allRecommendations, setAllRecommendations] = useState<any[]>(() => getCached<any[]>(INSIGHTS_CACHE_KEY) || []);
+  const [loading, setLoading] = useState(!isCached(INSIGHTS_CACHE_KEY));
+  const [hasInitialized, setHasInitialized] = useState(isActive || isCached(INSIGHTS_CACHE_KEY));
+  const [statuses] = useState<Record<string, 'active' | 'resolved' | 'ignored'>>(() => {
+    try {
+      return JSON.parse(localStorage.getItem(DISMISSED_KEY) || '{}');
+    } catch {
+      return {};
+    }
+  });
 
-  // We fetch from the FastAPI backend now!
   useEffect(() => {
-    async function loadRecs() {
+    if (isActive) setHasInitialized(true);
+  }, [isActive]);
+
+  useEffect(() => {
+    if (!hasInitialized || isCached(INSIGHTS_CACHE_KEY)) return;
+
+    async function loadAllRecs() {
       try {
         setLoading(true);
-        const res = await fetch(`http://localhost:8000/api/recommendations?status=${filter}`);
+        const res = await fetch(`${API}/api/insights`);
         const data = await res.json();
-        setHistorical(data);
+        const next = Array.isArray(data.insights) ? data.insights : [];
+        setAllRecommendations(next);
+        setCache(INSIGHTS_CACHE_KEY, next, { ttlMs: null });
       } catch (e) {
-        console.error("Failed to fetch backend recommendations", e);
+        console.error("Failed to fetch backend insights", e);
       } finally {
         setLoading(false);
       }
     }
-    loadRecs();
-  }, [filter]);
+
+    loadAllRecs();
+  }, [hasInitialized]);
+
+  const historical = allRecommendations
+    .map((item) => {
+      const insightStatus = statuses[item.id] || 'active';
+      return {
+        ...item,
+        detail: item.action,
+        agent: 'Market Analyst',
+        status:
+          insightStatus === 'resolved'
+            ? 'acted_on'
+            : insightStatus === 'ignored'
+              ? 'dismissed'
+              : 'pending',
+        time: 'Generated insight',
+      };
+    })
+    .filter((item) => filter === 'all' || item.status === filter);
 
   const urgencyColor = (u: string) => u === 'red' ? '#FF4B4B' : u === 'amber' ? '#FFB000' : '#00D1C1';
   const statusStyle = (s: string) => {
@@ -33,85 +91,114 @@ export default function Recommendations() {
   };
 
   return (
-    <div className="flex-1 overflow-y-auto h-full font-sans" style={{ background: '#0D0D0D', color: '#F8F9FA' }}>
-      <header
-        className="px-8 py-6 flex justify-between items-end shrink-0"
-        style={{ background: '#111318', borderBottom: '1px solid rgba(255,255,255,0.07)', boxShadow: '0 2px 20px rgba(0,0,0,0.4)' }}
-      >
-        <div>
-          <div className="flex items-center text-[10px] uppercase tracking-widest font-bold mb-1" style={{ color: '#4B5563' }}>
-            <ListOrdered className="w-4 h-4 mr-2" /> Accountability
+    <div className="flex-1 h-full overflow-y-auto" style={{ background: T.base, color: T.primary, fontFamily: "'DM Sans', system-ui, sans-serif" }}>
+      <header style={{ borderBottom: `1px solid ${T.border}`, background: T.s1 }}>
+        <div style={{ maxWidth: 1280, width: '100%', margin: '0 auto', padding: '32px 40px', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 24 }}>
+          <div>
+            <p style={{ fontSize: 13, color: T.muted, letterSpacing: '0.12em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 8 }}>
+              Accountability
+            </p>
+            <h1 style={{ fontSize: 28, fontWeight: 600, color: T.primary, margin: 0, letterSpacing: '-0.02em' }}>
+              Action Log
+            </h1>
           </div>
-          <h1 className="text-3xl font-semibold tracking-tight" style={{ color: '#F8F9FA' }}>Recommendations Log</h1>
-        </div>
-        <div className="flex gap-2">
-          {['all', 'pending', 'acted_on', 'dismissed'].map(f => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className="px-4 py-2 rounded-lg text-sm font-medium capitalize transition-all"
-              style={
-                filter === f
-                  ? { background: 'rgba(0,209,193,0.15)', color: '#00D1C1', border: '1px solid rgba(0,209,193,0.3)' }
-                  : { background: 'rgba(255,255,255,0.04)', color: '#6B7280', border: '1px solid rgba(255,255,255,0.08)' }
-              }
-            >
-              {f.replace('_', ' ')}
-            </button>
-          ))}
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            {FILTERS.map((f) => (
+              <button
+                key={f}
+                onClick={() => setFilter(f)}
+                style={{
+                  padding: '10px 16px',
+                  borderRadius: 10,
+                  fontSize: 14,
+                  fontWeight: 600,
+                  textTransform: 'capitalize',
+                  cursor: 'pointer',
+                  border: filter === f ? '1px solid rgba(45,212,191,0.3)' : '1px solid rgba(255,255,255,0.08)',
+                  background: filter === f ? 'rgba(45,212,191,0.12)' : T.s2,
+                  color: filter === f ? T.teal : T.secondary,
+                }}
+              >
+                {f.replace('_', ' ')}
+              </button>
+            ))}
+          </div>
         </div>
       </header>
 
-      <div className="p-8 max-w-7xl mx-auto space-y-4">
+      <div style={{ maxWidth: 1280, width: '100%', margin: '0 auto', padding: '40px 48px 80px' }}>
         {loading ? (
-          <div className="text-gray-500 text-center py-10">Loading insights from Backend...</div>
+          <div style={{ background: T.s1, border: `1px solid ${T.border}`, borderRadius: 16, padding: '24px 32px', color: T.secondary }}>
+            Loading action log...
+          </div>
         ) : historical.length === 0 ? (
-          <div className="text-gray-600 text-center py-10">No recommendations found.</div>
-        ) : historical.map((item, i) => (
-          <motion.div
-            key={item.id ?? i}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.05 }}
-            className="rounded-xl p-5 flex flex-col md:flex-row md:items-center gap-6"
-            style={{ background: '#111318', border: '1px solid rgba(255,255,255,0.07)' }}
-          >
-            <div className="w-[120px] shrink-0">
-              <div className="text-xs font-mono mb-2" style={{ color: '#4B5563' }}>{item.time}</div>
-              <div className="flex items-center gap-1.5">
-                <div
-                  className="w-2 h-2 rounded-full"
-                  style={{ background: urgencyColor(item.urgency), boxShadow: `0 0 6px ${urgencyColor(item.urgency)}` }}
-                />
-                <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: '#6B7280' }}>{item.agent}</span>
-              </div>
-            </div>
-
-            <div className="flex-1">
-              <h3 className="font-semibold text-lg mb-1" style={{ color: '#F8F9FA' }}>{item.headline}</h3>
-              <p className="text-sm" style={{ color: '#6B7280' }}>{item.detail}</p>
-
-              {('note' in item) && item.note && (
-                <div
-                  className="mt-3 rounded-lg p-3 text-sm flex items-start"
-                  style={{ background: 'rgba(0,209,193,0.06)', border: '1px solid rgba(0,209,193,0.15)' }}
-                >
-                  <CheckCircle2 className="w-4 h-4 mr-2 mt-0.5 shrink-0" style={{ color: '#00D1C1' }} />
-                  <span className="italic" style={{ color: '#9CA3AF' }}>"{(item as any).note}"</span>
-                </div>
-              )}
-            </div>
-
-            <div className="w-[120px] shrink-0 text-right">
-              <span
-                className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold uppercase"
-                style={statusStyle(item.status)}
+          <div style={{ background: T.s1, border: `1px solid ${T.border}`, borderRadius: 16, padding: '40px 32px', textAlign: 'center', color: T.secondary }}>
+            No recommendations found.
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {historical.map((item, i) => (
+              <motion.div
+                key={item.id ?? i}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.05 }}
+                style={{ background: T.s1, border: `1px solid ${T.border}`, borderRadius: 16, padding: '20px 24px', display: 'grid', gridTemplateColumns: '140px minmax(0, 1fr) 120px', gap: 24, alignItems: 'start' }}
               >
-                {item.status.replace('_', ' ')}
-              </span>
-            </div>
-          </motion.div>
-        ))}
+                <div>
+                  <div style={{ fontSize: 12, color: T.muted, marginBottom: 10, fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
+                    {item.time}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div
+                      style={{ width: 8, height: 8, borderRadius: '50%', background: urgencyColor(item.urgency), boxShadow: `0 0 6px ${urgencyColor(item.urgency)}` }}
+                    />
+                    <span style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', color: T.secondary }}>
+                      {item.agent}
+                    </span>
+                  </div>
+                </div>
+
+                <div style={{ minWidth: 0 }}>
+                  <h3 style={{ fontSize: 18, fontWeight: 600, margin: '0 0 8px', color: T.primary }}>
+                    {item.headline}
+                  </h3>
+                  <p style={{ fontSize: 14, color: T.secondary, margin: 0, lineHeight: 1.6 }}>
+                    {item.detail}
+                  </p>
+
+                  {('note' in item) && item.note && (
+                    <div
+                      style={{ marginTop: 12, borderRadius: 12, padding: '12px 14px', display: 'flex', alignItems: 'flex-start', gap: 8, background: 'rgba(45,212,191,0.06)', border: '1px solid rgba(45,212,191,0.15)' }}
+                    >
+                      <CheckCircle2 style={{ width: 16, height: 16, color: T.teal, flexShrink: 0, marginTop: 2 }} />
+                      <span style={{ fontSize: 14, color: '#9CA3AF', fontStyle: 'italic' }}>
+                        "{(item as any).note}"
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <div style={{ textAlign: 'right' }}>
+                  <span
+                    style={{
+                      ...statusStyle(item.status),
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      padding: '6px 10px',
+                      borderRadius: 999,
+                      fontSize: 11,
+                      fontWeight: 700,
+                      textTransform: 'uppercase',
+                    }}
+                  >
+                    {item.status.replace('_', ' ')}
+                  </span>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

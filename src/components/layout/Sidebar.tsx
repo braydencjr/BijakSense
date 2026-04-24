@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { 
-  Map, 
-  LayoutDashboard, 
-  MessageSquare, 
+import {
+  Map,
+  LayoutDashboard,
+  MessageSquare,
   ListOrdered,
   Package,
   LogOut
@@ -13,8 +13,8 @@ import { cn } from '../../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 
 function handleLogout() {
-  localStorage.removeItem('merchantmind:onboardingComplete');
-  localStorage.removeItem('merchantmind:business');
+  localStorage.removeItem('bijaksense:onboardingComplete');
+  localStorage.removeItem('bijaksense:business');
   window.location.href = '/onboarding';
 }
 
@@ -24,15 +24,15 @@ export default function Sidebar() {
   const location = useLocation();
 
   const links = [
-    { to: '/dashboard', icon: LayoutDashboard, label: 'Command Center' },
     { to: '/map', icon: Map, label: 'Intelligence Map' },
+    { to: '/dashboard', icon: LayoutDashboard, label: 'Command Center' },
     { to: '/chat', icon: MessageSquare, label: 'Co-Pilot Chat' },
     { to: '/inventory', icon: Package, label: 'Inventory Planner' },
     { to: '/recommendations', icon: ListOrdered, label: 'Action Log' },
   ];
 
   return (
-    <motion.aside 
+    <motion.aside
       initial={false}
       animate={{ width: expanded ? 220 : 60 }}
       className="h-screen flex flex-col z-50 relative shrink-0"
@@ -50,16 +50,16 @@ export default function Sidebar() {
           className="w-7 h-7 rounded-md flex items-center justify-center text-white font-bold shrink-0 text-xs"
           style={{ background: 'linear-gradient(135deg,#00D1C1,#00BCAE)', boxShadow: '0 0 12px rgba(0,209,193,0.4)' }}
         >
-          M
+          B
         </div>
         {expanded && (
-          <motion.span 
+          <motion.span
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             className="ml-3 font-bold uppercase tracking-tight text-base overflow-hidden whitespace-nowrap"
             style={{ color: '#F8F9FA' }}
           >
-            MerchantMind
+            BijakSense
           </motion.span>
         )}
       </div>
@@ -69,8 +69,8 @@ export default function Sidebar() {
         {links.map((link) => {
           const active = location.pathname === link.to;
           return (
-            <Link 
-              key={link.to} 
+            <Link
+              key={link.to}
               to={link.to}
               className={cn(
                 "flex items-center px-2 py-2.5 rounded-lg transition-all group relative",
@@ -89,7 +89,7 @@ export default function Sidebar() {
                 />
               )}
               <link.icon className="w-5 h-5 shrink-0" />
-              <div 
+              <div
                 className={cn(
                   "ml-3 whitespace-nowrap overflow-hidden transition-all duration-300 text-sm font-medium",
                   expanded ? "opacity-100" : "opacity-0 w-0"
@@ -109,8 +109,8 @@ export default function Sidebar() {
           {expanded && <span className="text-xs uppercase tracking-wider font-semibold" style={{ color: '#4B5563' }}>System Status</span>}
           <div className="flex gap-1.5 align-center justify-center">
             {AGENTS.map((a) => (
-              <div 
-                key={a.id} 
+              <div
+                key={a.id}
                 title={a.name}
                 className={cn(
                   "w-2 h-2 rounded-full",
@@ -118,9 +118,9 @@ export default function Sidebar() {
                 )}
                 style={{
                   background: a.status === 'processing' ? '#00D1C1' :
-                               a.status === 'alert' ? '#FF4B4B' : '#374151',
+                    a.status === 'alert' ? '#FF4B4B' : '#374151',
                   boxShadow: a.status === 'processing' ? '0 0 6px #00D1C1' :
-                              a.status === 'alert' ? '0 0 6px #FF4B4B' : 'none',
+                    a.status === 'alert' ? '0 0 6px #FF4B4B' : 'none',
                 }}
               />
             ))}
@@ -176,8 +176,8 @@ export default function Sidebar() {
               color: showLogoutConfirm ? '#FF4B4B' : '#4B5563',
               background: showLogoutConfirm ? 'rgba(255,75,75,0.1)' : 'transparent',
             }}
-            onMouseEnter={e => { if (!showLogoutConfirm) { e.currentTarget.style.color = '#FF4B4B'; e.currentTarget.style.background = 'rgba(255,75,75,0.07)'; }}}
-            onMouseLeave={e => { if (!showLogoutConfirm) { e.currentTarget.style.color = '#4B5563'; e.currentTarget.style.background = 'transparent'; }}}
+            onMouseEnter={e => { if (!showLogoutConfirm) { e.currentTarget.style.color = '#FF4B4B'; e.currentTarget.style.background = 'rgba(255,75,75,0.07)'; } }}
+            onMouseLeave={e => { if (!showLogoutConfirm) { e.currentTarget.style.color = '#4B5563'; e.currentTarget.style.background = 'transparent'; } }}
           >
             <LogOut className="w-5 h-5 shrink-0" />
             <div

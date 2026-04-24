@@ -333,8 +333,8 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
       aiInsights: path === 'has_business' ? insights : suggestions,
       onboardedAt: new Date().toISOString(),
     };
-    localStorage.setItem('merchantmind:business', JSON.stringify(data));
-    localStorage.setItem('merchantmind:onboardingComplete', 'true');
+    localStorage.setItem('bijaksense:business', JSON.stringify(data));
+    localStorage.setItem('bijaksense:onboardingComplete', 'true');
     onComplete?.();   // flip App-level state so routes re-evaluate
     navigate('/dashboard');
   }
@@ -380,7 +380,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
                   className="w-16 h-16 rounded-xl flex items-center justify-center text-3xl font-bold mb-8"
                   style={{ background: 'linear-gradient(135deg,#00D1C1,#00BCAE)', boxShadow: '0 0 40px rgba(0,209,193,0.35)' }}
                 >
-                  M
+                  B
                 </motion.div>
 
                 <motion.h1
@@ -389,7 +389,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
                   transition={{ delay: 0.35 }}
                   className="text-5xl font-semibold tracking-tight mb-4"
                 >
-                  MerchantMind
+                  BijakSense
                 </motion.h1>
 
                 <motion.p
@@ -506,7 +506,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
                 Do you already have a business in mind?
               </h2>
               <p style={{ color: '#6B7280' }} className="text-lg">
-                MerchantMind will tailor its AI analysis based on your answer.
+                BijakSense will tailor its AI analysis based on your answer.
               </p>
             </motion.div>
 
@@ -890,7 +890,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
               <div className="text-center mb-6">
                 <h3 className="text-xl font-semibold mb-2">Scanning your area</h3>
                 <p className="text-sm" style={{ color: '#6B7280' }}>
-                  MerchantMind AI is analyzing the 5 km radius around your location.
+                  BijakSense AI is analyzing the 5 km radius around your location.
                 </p>
               </div>
 
@@ -1145,7 +1145,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
                 <div>
                   <p className="text-sm font-medium">Ready to launch your co-pilot</p>
                   <p className="text-xs mt-0.5" style={{ color: '#6B7280' }}>
-                    MerchantMind will continuously monitor signals for your business.
+                    BijakSense will continuously monitor signals for your business.
                   </p>
                 </div>
                 <motion.button
@@ -1159,7 +1159,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
                     color: '#fff',
                   }}
                 >
-                  Start MerchantMind
+                  Start BijakSense
                   <ArrowRight className="w-4 h-4" />
                 </motion.button>
               </motion.div>

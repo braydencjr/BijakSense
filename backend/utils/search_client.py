@@ -1,5 +1,5 @@
 """
-MerchantMind — Search Utility Client
+BijakSense — Search Utility Client
 
 Wrapper for the Tavily Search API and Google Maps (for Street View photos)
 """

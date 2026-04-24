@@ -230,7 +230,7 @@ export default function Chat() {
               type="text"
               value={input}
               onChange={e => setInput(e.target.value)}
-              placeholder="Ask MerchantMind..."
+              placeholder="Ask BijakSense..."
               className="w-full rounded-full py-4 pl-6 pr-14 focus:outline-none transition-all"
               style={{
                 background: '#111318',

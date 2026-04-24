@@ -1,5 +1,5 @@
 """
-MerchantMind Backend — FastAPI application entry point.
+BijakSense Backend — FastAPI application entry point.
 
 Routers:
   - /api/merchant        — merchant CRUD + onboarding
@@ -35,14 +35,14 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("MerchantMind backend starting up...")
+    logger.info("BijakSense backend starting up...")
     yield
-    logger.info("MerchantMind backend shutting down...")
+    logger.info("BijakSense backend shutting down...")
     await close_redis()
 
 
 app = FastAPI(
-    title="MerchantMind API",
+    title="BijakSense API",
     description="AI decision co-pilot for SEA SME merchants. A2A + MCP architecture.",
     version="1.0.0",
     lifespan=lifespan,
@@ -65,13 +65,13 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 @app.get("/health", tags=["System"])
 async def health():
-    return {"status": "ok", "service": "merchantmind-backend"}
+    return {"status": "ok", "service": "bijaksense-backend"}
 
 
 @app.get("/", tags=["System"])
 async def root():
     return {
-        "service": "MerchantMind API",
+        "service": "BijakSense API",
         "version": "1.0.0",
         "docs": "/docs",
         "agents": ["orchestrator", "inventory_planner", "market_analyst", "location_scout", "ops_advisor"],

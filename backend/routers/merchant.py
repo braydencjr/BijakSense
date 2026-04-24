@@ -1,5 +1,5 @@
 """
-MerchantMind — Merchant Router
+BijakSense — Merchant Router
 Handles merchant onboarding, profile, products, and ingredients.
 """
 import logging

@@ -1,5 +1,5 @@
 """
-MerchantMind — Schemas for Recommendations
+BijakSense — Schemas for Recommendations
 """
 from pydantic import BaseModel
 from typing import Optional, Any

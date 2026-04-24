@@ -1,5 +1,5 @@
 """
-Base class for all MerchantMind A2A specialist agents.
+Base class for all BijakSense A2A specialist agents.
 
 Every agent:
   - Inherits A2AAgent

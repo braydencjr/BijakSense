@@ -1,5 +1,5 @@
 """
-MerchantMind — Ops Advisor Agent (Member E)
+BijakSense — Ops Advisor Agent (Member E)
 Provides day-to-day operational advice (staffing, hours, logistics).
 """
 import logging

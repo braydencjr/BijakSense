@@ -1,5 +1,5 @@
 """
-MerchantMind — AI client wrapper.
+BijakSense — AI client wrapper.
 
 Primary: Google Gemini (gemini-2.5-flash).
 Fallback: ilmu-glm-5.1 via Anthropic-compatible API (api.ilmu.ai/anthropic).
