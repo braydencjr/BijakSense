@@ -24,7 +24,7 @@ import { motion } from 'motion/react';
      teal    #2DD4BF  (CTA, active, positive)
      amber   #F59E0B  (warning)
      ruby    #F43F5E  (critical)
-──────────────────────────────────────────────────────────────── */
+ ──────────────────────────────────────────────────────────────── */
 
 const T = {
   base:     '#09090F',
@@ -52,6 +52,9 @@ function urgencyAccent(urgency: string) {
 
 export default function Dashboard() {
   const [inventory, setInventory] = React.useState<any[]>([]);
+  const [liveRecs, setLiveRecs] = React.useState<any[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [backendError, setBackendError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     let mounted = true;
