@@ -105,25 +105,19 @@ async def analyze_full_inventory(
     weather = await fetch_current_weather(lat, lon)
 
     # 3. Build context for GLM
-    items_with_predictions = [p for p in predictions if p.get("predicted_price")]
-
-    if not items_with_predictions:
-        return {
-            "predictions": predictions,
-            "insights": [],
-            "summary": "No items have sufficient data for AI analysis. Link items to DOSM reference codes to enable predictions.",
-            "weather_context": f"Current conditions: {weather['temp_celsius']}°C, {weather['precip_flux']}mm precipitation.",
-        }
+    # We now include all items, even if prediction failed, to ensure "newly added items" show up.
+    items_to_analyze = predictions
 
     prediction_ctx = "\n".join([
-        f"- {p['item_name']} (code {p['item_code']}): "
-        f"current avg RM{p['current_avg_price']:.2f}, "
-        f"predicted RM{p['predicted_price']:.2f} ({p['price_change_pct']:+.1f}%), "
-        f"trend: {p['trend']}, confidence: {p['confidence']}, "
+        f"- {p['item_name']} (code {p.get('item_code', 'N/A')}): "
+        f"current avg RM{p.get('current_avg_price') or 0:.2f}, "
+        f"predicted RM{p.get('predicted_price') or 0:.2f} ({p.get('price_change_pct') or 0:+.1f}%), "
+        f"trend: {p.get('trend', 'unknown')}, confidence: {p.get('confidence', 'low')}, "
         f"stock: {p.get('quantity', 0)}{p.get('unit', '')}, "
         f"reorder at: {p.get('reorder_threshold', 0)}{p.get('unit', '')}, "
         f"merchant pays: RM{p.get('current_purchase_price', 0):.2f}"
-        for p in items_with_predictions
+        + (f" (NOTE: {p['note']})" if p.get("note") else "")
+        for p in items_to_analyze
     ])
 
     weather_ctx = (
@@ -154,16 +148,34 @@ Return JSON only.
             max_tokens=2000,
         )
     except Exception as e:
-        logger.warning("GLM analysis failed (%s), generating ML-only insights", e)
         # Generate structured insights from ML predictions alone
         ml_insights = []
-        for p in items_with_predictions:
-            change = p.get("price_change_pct", 0)
+        for p in items_to_analyze:
+            change = p.get("price_change_pct", 0) or 0
             trend = p.get("trend", "stable")
             risk = "high" if abs(change) > 5 else "medium" if abs(change) > 2 else "low"
             urgency = "urgent" if change > 5 else "watch" if change > 2 else "opportunity"
             direction = "rising" if change > 0 else "falling" if change < 0 else "stable"
             
+            # Handle items with no prediction data
+            if p.get("predicted_price") is None or p.get("predicted_price") == 0:
+                ml_insights.append({
+                    "item_name": p["item_name"],
+                    "item_code": p.get("item_code"),
+                    "risk_level": "low",
+                    "headline": f"{p['item_name']}: monitoring (insufficient data)",
+                    "predicted_price": 0,
+                    "current_price": p.get("current_avg_price", 0) or 0,
+                    "price_direction": "stable",
+                    "weather_impact": "Weather impacts will be assessed once historical price data is established.",
+                    "recommended_action": "Maintain current stock levels and monitor market trends.",
+                    "urgency": "watch",
+                    "reasoning": "This item was recently added or lacks historical data for accurate ML forecasting. We are now collecting local price points.",
+                    "cost_now": round(p.get("current_purchase_price", 0) * max(p.get("quantity", 1), 1), 2),
+                    "cost_if_delayed": round(p.get("current_purchase_price", 0) * max(p.get("quantity", 1), 1), 2),
+                })
+                continue
+
             current_cost = p.get("current_purchase_price", 0) * max(p.get("quantity", 1), 1)
             delayed_cost = (p.get("predicted_price", 0)) * max(p.get("quantity", 1), 1)
 
@@ -186,7 +198,7 @@ Return JSON only.
         return {
             "predictions": predictions,
             "insights": ml_insights,
-            "summary": f"ML analysis complete for {len(items_with_predictions)} items. AI narrative temporarily unavailable.",
+            "summary": f"ML analysis complete for {len(items_to_analyze)} items. AI narrative temporarily unavailable.",
             "weather_context": f"{weather['temp_celsius']}°C, {weather['precip_flux']}mm precipitation in Petaling Jaya.",
             "weather": weather,
         }

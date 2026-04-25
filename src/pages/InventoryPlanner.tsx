@@ -631,7 +631,7 @@ export default function InventoryPlanner() {
               ) : analysisLoading ? (
                 <div className="text-center py-12 px-6" style={{ color: T.muted }}>
                   <Loader2 className="w-8 h-8 mx-auto mb-3 animate-spin opacity-40" />
-                  <p className="text-sm">Running Random Forest model and fetching weather data...</p>
+                  <p className="text-sm">Running Machine Learning model and fetching weather data...</p>
                   <p className="text-[10px] mt-1 uppercase tracking-widest">This may take a few seconds</p>
                 </div>
               ) : (
