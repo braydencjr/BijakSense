@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Package, AlertTriangle, TrendingUp, Calendar, ArrowRight, ArrowDown, ArrowUp, Loader2, Plus, X, Pencil, ChevronDown, Sparkles } from 'lucide-react';
+import { Package, AlertTriangle, TrendingUp, Calendar, ArrowRight, ArrowDown, ArrowUp, Loader2, Plus, X, Pencil, ChevronDown, Sparkles, ShoppingCart } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { AreaChart, Area, ResponsiveContainer, YAxis, Tooltip, XAxis } from 'recharts';
 import { motion, AnimatePresence } from 'motion/react';
@@ -31,8 +31,9 @@ export default function InventoryPlanner() {
   const [inventory, setInventory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showRestockModal, setShowRestockModal] = useState(false);
   const [priceRange, setPriceRange] = useState<number>(30); // Default to 30 days
-
+  
   // Reference Data States
   const [categories, setCategories] = useState<string[]>([]);
   const [itemsInCategory, setItemsInCategory] = useState<any[]>([]);
@@ -52,6 +53,11 @@ export default function InventoryPlanner() {
     manufacturing_cost: 0,
     shipping_cost: 0
   });
+
+  const [restockItem, setRestockItem] = useState<any>(null);
+  const [restockQty, setRestockQty] = useState<number>(0);
+  const [isRestocking, setIsRestocking] = useState(false);
+
   const [recs, setRecs] = useState<any[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [latestDate, setLatestDate] = useState<string>('Loading...');
@@ -63,7 +69,6 @@ export default function InventoryPlanner() {
         const data = await res.json();
         const dateStr = data.latest_date;
         if (dateStr && dateStr !== 'N/A') {
-          // Format "YYYY-MM-DD" to "Month YYYY"
           const date = new Date(dateStr);
           const formatted = date.toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' });
           setLatestDate(formatted);
@@ -85,8 +90,7 @@ export default function InventoryPlanner() {
         return;
       }
       const data = await res.json();
-
-      // For each item with an item_code, fetch its official history based on range
+      
       const itemsWithHistory = await Promise.all(data.map(async (item: any) => {
         if (item.item_code) {
           try {
@@ -126,7 +130,7 @@ export default function InventoryPlanner() {
   };
 
   const fetchItemsByCategory = async (category: string) => {
-    setItemsInCategory([]); // Clear immediately to avoid stale data
+    setItemsInCategory([]);
     if (!category) return;
     try {
       setLoadingItems(true);
@@ -161,7 +165,6 @@ export default function InventoryPlanner() {
     fetchLatestDate();
   }, []);
 
-  // Re-fetch history when priceRange changes
   useEffect(() => {
     if (inventory.length > 0) {
       fetchInventory(priceRange);
@@ -202,6 +205,36 @@ export default function InventoryPlanner() {
       }
     } catch (err) {
       console.error("Failed to save item:", err);
+    }
+  };
+
+  const handleQuickRestock = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!restockItem) return;
+    try {
+      setIsRestocking(true);
+      const updatedQty = (restockItem.quantity || 0) + restockQty;
+      
+      const res = await fetch(`http://localhost:8000/api/inventory/${restockItem.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...restockItem,
+          quantity: updatedQty,
+          last_restocked: new Date().toISOString()
+        })
+      });
+
+      if (res.ok) {
+        setShowRestockModal(false);
+        setRestockItem(null);
+        setRestockQty(0);
+        fetchInventory();
+      }
+    } catch (err) {
+      console.error("Failed to restock item:", err);
+    } finally {
+      setIsRestocking(false);
     }
   };
 
@@ -382,14 +415,20 @@ export default function InventoryPlanner() {
                             >
                               <X className="w-4 h-4" />
                             </button>
-                            <button className={cn(
-                              "px-4 py-1.5 rounded-lg text-xs font-bold transition-all ml-2",
-                              isAlert ? "shadow-lg shadow-ruby-500/20" : isCrit ? "shadow-lg shadow-amber-500/20" : ""
-                            )} style={{
-                              background: isAlert ? T.ruby : isCrit ? T.amber : T.s2,
-                              color: isAlert || isCrit ? '#fff' : T.primary,
-                              border: isAlert || isCrit ? 'none' : `1px solid ${T.borderMd}`
-                            }}>
+                            <button 
+                              onClick={() => {
+                                setRestockItem(item);
+                                setRestockQty(Math.max(0, (item.reorder_threshold || item.reorderThreshold || 0) - (item.quantity || 0)));
+                                setShowRestockModal(true);
+                              }}
+                              className={cn(
+                                "px-4 py-1.5 rounded-lg text-xs font-bold transition-all ml-2",
+                                isAlert ? "shadow-lg shadow-ruby-500/20" : isCrit ? "shadow-lg shadow-amber-500/20" : ""
+                              )} style={{
+                                background: isAlert ? T.ruby : isCrit ? T.amber : T.s2,
+                                color: isAlert || isCrit ? '#fff' : T.primary,
+                                border: isAlert || isCrit ? 'none' : `1px solid ${T.borderMd}`
+                              }}>
                               {isCrit || isAlert ? 'REORDER' : 'DETAILS'}
                             </button>
                           </div>
@@ -758,7 +797,63 @@ export default function InventoryPlanner() {
             </motion.div>
           </div>
         )}
+
+        {showRestockModal && restockItem && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setShowRestockModal(false)}
+              className="absolute inset-0 bg-black/80 backdrop-blur-md"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-md overflow-hidden rounded-3xl shadow-2xl border"
+              style={{ background: T.s1, borderColor: T.borderMd }}
+            >
+              <div className="px-8 py-6 border-b flex items-center justify-between" style={{ background: T.s2, borderColor: T.border }}>
+                <div>
+                  <h2 className="font-black text-xl tracking-tight leading-none uppercase">Quick Restock</h2>
+                  <p className="text-xs mt-2" style={{ color: T.secondary }}>Adding stock for {restockItem.item_name || restockItem.itemName}</p>
+                </div>
+                <button onClick={() => setShowRestockModal(false)} className="p-2 hover:bg-white/5 rounded-full transition-colors" style={{ color: T.muted }}>
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              <form onSubmit={handleQuickRestock} className="p-8 space-y-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest opacity-60">Quantity to Add</label>
+                  <div className="relative">
+                    <input
+                      type="number" required step="0.1" autoFocus
+                      className="w-full h-14 px-6 text-xl font-mono font-bold rounded-2xl outline-none focus:ring-2 border"
+                      style={{ background: T.base, borderColor: T.borderMd, color: T.primary }}
+                      value={restockQty}
+                      onChange={e => setRestockQty(parseFloat(e.target.value))}
+                    />
+                    <span className="absolute right-6 top-4.5 text-xs font-black opacity-40">{restockItem.unit.toUpperCase()}</span>
+                  </div>
+                  <p className="text-[10px] font-bold px-2" style={{ color: T.muted }}>
+                    Current Stock: {restockItem.quantity.toFixed(1)} {restockItem.unit}
+                  </p>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isRestocking}
+                  className="w-full py-4 rounded-2xl font-black text-sm uppercase tracking-widest transition-all hover:scale-[1.01] active:scale-[0.99] shadow-2xl shadow-teal-500/20 flex items-center justify-center"
+                  style={{ background: `linear-gradient(135deg, ${T.emerald}, #059669)`, color: '#fff' }}
+                >
+                  {isRestocking ? <Loader2 className="w-5 h-5 animate-spin" /> : <><ShoppingCart className="w-4 h-4 mr-2" /> Confirm Restock</>}
+                </button>
+              </form>
+            </motion.div>
+          </div>
+        )}
       </AnimatePresence>
+
       <footer className="max-w-7xl mx-auto px-8 py-12 border-t mt-12" style={{ borderColor: T.border }}>
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
           <div>
