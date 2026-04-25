@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Package, AlertTriangle, TrendingUp, Calendar, ArrowRight, ArrowDown, ArrowUp, Loader2, Plus, X, Pencil, ChevronDown, Sparkles, ShoppingCart } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Package, AlertTriangle, TrendingUp, Calendar, ArrowRight, ArrowDown, ArrowUp, Loader2, Plus, X, Pencil, ChevronDown, Sparkles, ShoppingCart, Search, Filter, ChevronUp, ArrowUpDown } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { AreaChart, Area, ResponsiveContainer, YAxis, Tooltip, XAxis } from 'recharts';
 import { motion, AnimatePresence } from 'motion/react';
@@ -27,6 +27,9 @@ const T = {
   rubyDim: 'rgba(244,63,94,0.1)',
 };
 
+type SortKey = 'item_name' | 'supplier_name' | 'quantity' | 'current_price_myr';
+type SortDirection = 'asc' | 'desc' | null;
+
 export default function InventoryPlanner() {
   const [inventory, setInventory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -34,6 +37,11 @@ export default function InventoryPlanner() {
   const [showRestockModal, setShowRestockModal] = useState(false);
   const [priceRange, setPriceRange] = useState<number>(30); // Default to 30 days
   
+  // Advanced Filter & Sort States
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'critical' | 'alert'>('all');
+  const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: SortDirection }>({ key: 'item_name', direction: 'asc' });
+
   // Reference Data States
   const [categories, setCategories] = useState<string[]>([]);
   const [itemsInCategory, setItemsInCategory] = useState<any[]>([]);
@@ -171,6 +179,54 @@ export default function InventoryPlanner() {
     }
   }, [priceRange]);
 
+  const toggleSort = (key: SortKey) => {
+    let direction: SortDirection = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    } else if (sortConfig.key === key && sortConfig.direction === 'desc') {
+      direction = null;
+    }
+    setSortConfig({ key, direction });
+  };
+
+  // Derived Filtered & Sorted Inventory
+  const filteredInventory = useMemo(() => {
+    let result = inventory.filter(item => {
+      const name = (item.item_name || item.itemName || '').toLowerCase();
+      const supplier = (item.supplier_name || item.supplier || '').toLowerCase();
+      const query = searchQuery.toLowerCase();
+      
+      const matchesSearch = name.includes(query) || supplier.includes(query);
+      
+      const isCrit = (item.quantity || 0) <= (item.reorder_threshold || item.reorderThreshold || 0);
+      const isAlert = item.alert || (item.supplier_reliability && item.supplier_reliability < 0.8);
+      
+      let matchesStatus = true;
+      if (statusFilter === 'critical') matchesStatus = isCrit;
+      if (statusFilter === 'alert') matchesStatus = isAlert;
+      
+      return matchesSearch && matchesStatus;
+    });
+
+    if (sortConfig.direction) {
+      result.sort((a, b) => {
+        let valA = a[sortConfig.key];
+        let valB = b[sortConfig.key];
+
+        // Handle inconsistent naming between API and UI state
+        if (sortConfig.key === 'item_name') { valA = a.item_name || a.itemName; valB = b.item_name || b.itemName; }
+        if (sortConfig.key === 'supplier_name') { valA = a.supplier_name || a.supplier; valB = b.supplier_name || b.supplier; }
+        if (sortConfig.key === 'current_price_myr') { valA = a.current_price_myr || a.currentPriceMyr; valB = b.current_price_myr || b.currentPriceMyr; }
+
+        if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+
+    return result;
+  }, [inventory, searchQuery, statusFilter, sortConfig]);
+
   const handleAddItem = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -295,6 +351,13 @@ export default function InventoryPlanner() {
     }
   };
 
+  const SortIcon = ({ colKey }: { colKey: SortKey }) => {
+    if (sortConfig.key !== colKey) return <ArrowUpDown className="w-3 h-3 ml-1.5 opacity-20" />;
+    if (sortConfig.direction === 'asc') return <ChevronUp className="w-3.5 h-3.5 ml-1.5 text-teal" />;
+    if (sortConfig.direction === 'desc') return <ChevronDown className="w-3.5 h-3.5 ml-1.5 text-teal" />;
+    return <ArrowUpDown className="w-3 h-3 ml-1.5 opacity-20" />;
+  };
+
   return (
     <div className="flex-1 overflow-y-auto h-full font-sans relative transition-colors duration-500" style={{ background: T.base, color: T.primary }}>
       <header className="px-8 py-6 sticky top-0 z-30 backdrop-blur-md" style={{ background: `${T.s1}cc`, borderBottom: `1px solid ${T.border}` }}>
@@ -336,6 +399,39 @@ export default function InventoryPlanner() {
       </header>
 
       <div className="p-8 max-w-7xl mx-auto space-y-8">
+        {/* Advanced Filters & Search Bar */}
+        <section className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
+          <div className="md:col-span-6 relative group">
+            <Search className="absolute left-4 top-3.5 w-4 h-4 transition-colors group-focus-within:text-teal" style={{ color: T.muted }} />
+            <input 
+              type="text"
+              placeholder="Search by item name or supplier..."
+              className="w-full h-12 pl-11 pr-4 rounded-2xl bg-white/5 border border-white/5 outline-none focus:ring-2 focus:ring-teal/50 transition-all text-sm"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+            />
+          </div>
+          <div className="md:col-span-6 flex items-center justify-end space-x-2">
+             {[
+               { id: 'all', label: 'All Items', icon: Filter },
+               { id: 'critical', label: 'Low Stock', icon: AlertTriangle },
+               { id: 'alert', label: 'Supplier Alert', icon: TrendingUp }
+             ].map(f => (
+               <button
+                 key={f.id}
+                 onClick={() => setStatusFilter(f.id as any)}
+                 className={cn(
+                   "flex items-center px-4 py-2.5 rounded-xl text-xs font-bold transition-all border",
+                   statusFilter === f.id ? "bg-teal/10 border-teal text-teal shadow-lg shadow-teal-500/10" : "bg-white/5 border-transparent text-muted hover:text-primary hover:bg-white/10"
+                 )}
+               >
+                 <f.icon className="w-3.5 h-3.5 mr-2" />
+                 {f.label}
+               </button>
+             ))}
+          </div>
+        </section>
+
         <motion.section
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -344,31 +440,42 @@ export default function InventoryPlanner() {
         >
           <div className="px-6 py-5 border-b flex justify-between items-center" style={{ borderColor: T.border }}>
             <h2 className="font-semibold text-lg">Current Inventory Status</h2>
-            <span className="text-[10px] font-mono tracking-widest" style={{ color: T.muted }}>
-              {loading ? "REFRESHING..." : "LIVE UPDATES ACTIVE"}
-            </span>
+            <div className="flex items-center space-x-4">
+              <span className="text-[10px] font-mono tracking-widest" style={{ color: T.muted }}>
+                {filteredInventory.length} OF {inventory.length} SHOWN
+              </span>
+              {loading && <Loader2 className="w-4 h-4 animate-spin" style={{ color: T.muted }} />}
+            </div>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="text-xs uppercase tracking-[0.1em] font-bold" style={{ background: T.s2, color: T.secondary }}>
                 <tr>
-                  <th className="px-6 py-4">Inventory Item</th>
-                  <th className="px-6 py-4">Supplier</th>
-                  <th className="px-6 py-4">Quantity</th>
-                  <th className="px-6 py-4">Unit Price</th>
+                  <th className="px-6 py-4 cursor-pointer hover:bg-white/5 transition-colors group" onClick={() => toggleSort('item_name')}>
+                    <div className="flex items-center">Inventory Item <SortIcon colKey="item_name" /></div>
+                  </th>
+                  <th className="px-6 py-4 cursor-pointer hover:bg-white/5 transition-colors group" onClick={() => toggleSort('supplier_name')}>
+                    <div className="flex items-center">Supplier <SortIcon colKey="supplier_name" /></div>
+                  </th>
+                  <th className="px-6 py-4 cursor-pointer hover:bg-white/5 transition-colors group" onClick={() => toggleSort('quantity')}>
+                    <div className="flex items-center">Quantity <SortIcon colKey="quantity" /></div>
+                  </th>
+                  <th className="px-6 py-4 cursor-pointer hover:bg-white/5 transition-colors group" onClick={() => toggleSort('current_price_myr')}>
+                    <div className="flex items-center">Unit Price <SortIcon colKey="current_price_myr" /></div>
+                  </th>
                   <th className="px-6 py-4 text-right">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y" style={{ borderColor: T.border }}>
-                {inventory.length === 0 && !loading ? (
+                {filteredInventory.length === 0 && !loading ? (
                   <tr>
                     <td colSpan={5} className="px-6 py-16 text-center" style={{ color: T.muted }}>
                       <Package className="w-12 h-12 mx-auto mb-4 opacity-20" />
-                      <p>Your inventory is empty. Start by adding items to track market trends.</p>
+                      <p>No items match your filters.</p>
                     </td>
                   </tr>
                 ) : (
-                  inventory.map((item, idx) => {
+                  filteredInventory.map((item, idx) => {
                     const isCrit = (item.quantity || 0) <= (item.reorder_threshold || item.reorderThreshold || 0);
                     const isAlert = item.alert || (item.supplier_reliability && item.supplier_reliability < 0.8);
 
@@ -506,26 +613,40 @@ export default function InventoryPlanner() {
             className="rounded-2xl shadow-xl overflow-hidden"
             style={{ background: T.s1, border: `1px solid ${T.border}` }}
           >
-            <div className="px-6 py-5 border-b flex items-center justify-between" style={{ borderColor: T.border }}>
-              <h2 className="font-semibold text-lg">Market Price Analytics</h2>
-              <div className="flex bg-black/40 p-1 rounded-xl border border-white/5">
-                {[7, 30, 90].map(days => (
-                  <button
-                    key={days}
-                    onClick={() => setPriceRange(days)}
-                    className={cn(
-                      "px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all",
-                      priceRange === days ? "bg-teal text-white shadow-lg shadow-teal-500/20" : "text-muted hover:text-primary"
-                    )}
-                    style={{ background: priceRange === days ? T.teal : 'transparent' }}
-                  >
-                    {days}D
-                  </button>
-                ))}
+            <div className="px-6 py-5 border-b" style={{ borderColor: T.border }}>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="font-semibold text-lg">Market Price Analytics</h2>
+                <div className="flex bg-black/40 p-1 rounded-xl border border-white/5">
+                  {[7, 30, 90].map(days => (
+                    <button
+                      key={days}
+                      onClick={() => setPriceRange(days)}
+                      className={cn(
+                        "px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all",
+                        priceRange === days ? "bg-teal text-white shadow-lg shadow-teal-500/20" : "text-muted hover:text-primary"
+                      )}
+                      style={{ background: priceRange === days ? T.teal : 'transparent' }}
+                    >
+                      {days}D
+                    </button>
+                  ))}
+                </div>
+              </div>
+              
+              {/* Internal Analytics Filter */}
+              <div className="relative group">
+                <Search className="absolute left-3 top-2.5 w-3.5 h-3.5 opacity-40 group-focus-within:opacity-100 group-focus-within:text-teal transition-all" />
+                <input 
+                  type="text"
+                  placeholder="Filter analytics..."
+                  className="w-full h-9 pl-9 pr-4 rounded-xl bg-white/5 border border-white/5 outline-none focus:ring-1 focus:ring-teal/30 transition-all text-xs"
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                />
               </div>
             </div>
             <div className="p-6 space-y-8 max-h-[500px] overflow-y-auto scrollbar-hide">
-              {inventory.filter(i => (i.price_history?.length > 0 || i.priceHistory?.length > 0)).map((item, i) => {
+              {filteredInventory.filter(i => (i.price_history?.length > 0 || i.priceHistory?.length > 0)).map((item, i) => {
                 const history = (item.price_history || item.priceHistory || []).map((ph: any) => ({
                   date: ph.date,
                   value: ph.price
@@ -535,8 +656,6 @@ export default function InventoryPlanner() {
                 const userPrice = item.current_price_myr || 0;
                 const diffPercent = latestMarketPrice > 0 ? ((userPrice - latestMarketPrice) / latestMarketPrice) * 100 : 0;
 
-                // Color based on whether user price is above or below market
-                // If user price > market price, it's a "warning" (ruby/amber)
                 const trendColor = diffPercent > 5 ? T.ruby : diffPercent > 0 ? T.amber : T.emerald;
 
                 return (
@@ -584,10 +703,10 @@ export default function InventoryPlanner() {
                   </div>
                 );
               })}
-              {inventory.length === 0 && (
+              {filteredInventory.length === 0 && (
                 <div className="text-center py-20" style={{ color: T.muted }}>
                   <TrendingUp className="w-12 h-12 mx-auto mb-4 opacity-10" />
-                  <p className="text-sm">Ingest market data to view price volatility charts.</p>
+                  <p className="text-sm">Ingest market data or adjust filters to view charts.</p>
                 </div>
               )}
             </div>
