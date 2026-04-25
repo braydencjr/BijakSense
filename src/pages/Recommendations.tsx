@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { CheckCircle2 } from 'lucide-react';
 import { motion } from 'motion/react';
-import { getCached, isCached, setCache } from '../lib/cache';
+import { getCached, setCache } from '../lib/cache';
+import { inferAgentLabel } from '../lib/agents';
 
 interface RecommendationsProps {
   isActive?: boolean;
 }
 
 const API = 'http://localhost:8000';
-const INSIGHTS_CACHE_KEY = 'insights:v3';
+const INSIGHTS_CACHE_KEY = 'insights:v5';
 const DISMISSED_KEY = 'dismissed:v1';
 const FILTERS = ['all', 'pending', 'acted_on', 'dismissed'] as const;
 const T = {
@@ -30,8 +31,7 @@ const T = {
 export default function Recommendations({ isActive = true }: RecommendationsProps) {
   const [filter, setFilter] = useState('all');
   const [allRecommendations, setAllRecommendations] = useState<any[]>(() => getCached<any[]>(INSIGHTS_CACHE_KEY) || []);
-  const [loading, setLoading] = useState(!isCached(INSIGHTS_CACHE_KEY));
-  const [hasInitialized, setHasInitialized] = useState(isActive || isCached(INSIGHTS_CACHE_KEY));
+  const [loading, setLoading] = useState(true);
   const [statuses] = useState<Record<string, 'active' | 'resolved' | 'ignored'>>(() => {
     try {
       return JSON.parse(localStorage.getItem(DISMISSED_KEY) || '{}');
@@ -41,11 +41,7 @@ export default function Recommendations({ isActive = true }: RecommendationsProp
   });
 
   useEffect(() => {
-    if (isActive) setHasInitialized(true);
-  }, [isActive]);
-
-  useEffect(() => {
-    if (!hasInitialized || isCached(INSIGHTS_CACHE_KEY)) return;
+    if (!isActive) return;
 
     async function loadAllRecs() {
       try {
@@ -62,8 +58,13 @@ export default function Recommendations({ isActive = true }: RecommendationsProp
       }
     }
 
+    const cached = getCached<any[]>(INSIGHTS_CACHE_KEY);
+    if (cached && cached.length > 0) {
+      setAllRecommendations(cached);
+      setLoading(false);
+    }
     loadAllRecs();
-  }, [hasInitialized]);
+  }, [isActive]);
 
   const historical = allRecommendations
     .map((item) => {
@@ -71,7 +72,7 @@ export default function Recommendations({ isActive = true }: RecommendationsProp
       return {
         ...item,
         detail: item.action,
-        agent: 'Market Analyst',
+        agent: inferAgentLabel(item),
         status:
           insightStatus === 'resolved'
             ? 'acted_on'

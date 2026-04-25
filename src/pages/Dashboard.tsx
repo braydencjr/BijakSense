@@ -4,6 +4,7 @@ import { getCached, setCache, isCached } from '../lib/cache';
 import { ArrowRight, CheckCircle, EyeOff, Bell, ChevronDown, ChevronUp, AlertTriangle, TrendingUp, Package } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
+import { inferAgentLabel } from '../lib/agents';
 
 interface DashboardProps {
   isActive?: boolean;
@@ -31,7 +32,7 @@ const T = {
 };
 
 const API = 'http://localhost:8000';
-const INSIGHTS_CACHE_KEY = 'insights:v4';
+const INSIGHTS_CACHE_KEY = 'insights:v5';
 const RECS_CACHE_KEY = 'recs:v2';
 const DISMISSED_KEY = 'dismissed:v1';
 const INSIGHTS_TTL_MS = 30 * 1000;
@@ -206,6 +207,7 @@ export default function Dashboard({ isActive = true }: DashboardProps) {
                   const isExpanded = expandedInsight === insight.id;
                   const uc = urgencyColor(insight.urgency);
                   const rank = idx + 1;
+                  const agentLabel = inferAgentLabel(insight);
 
                   return (
                     <motion.div key={insight.id}
@@ -226,6 +228,9 @@ export default function Dashboard({ isActive = true }: DashboardProps) {
                             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: uc.text, background: uc.bg, padding: '4px 10px', borderRadius: 6 }}>
                               {urgencyIcon(insight.urgency)}
                               {urgencyLabel(insight.urgency)}
+                            </span>
+                            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: T.secondary, background: T.s3, padding: '4px 10px', borderRadius: 6 }}>
+                              {agentLabel}
                             </span>
                             <span style={{ fontSize: 13, color: T.muted, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                               {insight.headline}

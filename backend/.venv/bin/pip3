@@ -1,6 +1,4 @@
-#!/bin/sh
-'''exec' "/Users/gohshengfung/Documents/UM Untrack/UMHackathon2026/backend/.venv/bin/python" "$0" "$@"
-' '''
+#!/Users/braydencjr/Desktop/UMHackathon2026/backend/.venv/bin/python3.11
 # -*- coding: utf-8 -*-
 import re
 import sys
