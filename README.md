@@ -140,11 +140,13 @@ BijakSense operates on an **Agent-to-Agent (A2A)** architecture, where multiple 
 
 ## Team
 Developed by team **git force push** with love.
-- Brayden Chong Jie Rui
-- Ong Yean
-- Cheah Yi Chern
-- Goh Sheng Fung
-- Chin Yiu Ern
+| Team Member | Contribution |
+|------------|-------------|
+| Brayden Chong Jie Rui | Led the team and designed the overall system architecture, ensuring all components worked cohesively. Developed the Orchestrator to route signals and user queries to the appropriate agents, and built the Market Analyst Agent for trend detection, competitor analysis, and pricing recommendations. |
+| Ong Yean | Implemented core machine learning and signal processing logic, transforming external data into structured inputs. Developed the Inventory Planner Agent to handle supply forecasting, cost analysis, and restocking recommendations. |
+| Cheah Yi Chern | Developed the Operations Advisor Agent, focusing on staffing decisions and event-based operational adjustments. Contributed to backend integration to ensure smooth communication between services and APIs. |
+| Goh Sheng Fung | Developed the Location Scout Agent to analyze foot traffic, infrastructure changes, and expansion opportunities. Implemented logic to convert geographic signals into actionable business insights. |
+| Chin Yiu Ern | Built the frontend interface, including the dashboard, Intelligence Map, and AI chat experience. Conducted quality assurance testing to ensure system stability, visual consistency, and demo readiness. |
 
 ## Acknowledgements
 
