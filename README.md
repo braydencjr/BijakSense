@@ -5,6 +5,8 @@
   <p>Empowering local businesses with multi-agent intelligence, real-time market data, and automated supply chain optimization.</p>
 </div>
 
+[![PRD](https://img.shields.io/badge/Documentation-Official-brightgreen?style=for-the-badge&logo=read-the-docs&logoColor=white)](https://drive.google.com/file/d/1C0eiduOcYLEJVILck6CaEqqk3O8ZCMpc/view?usp=drive_link)  [![SAD](https://img.shields.io/badge/Documentation-Official-brightgreen?style=for-the-badge&logo=read-the-docs&logoColor=white)](https://drive.google.com/file/d/10QViZrUGrdzFMteeqZa1dWqcLq0MdUD0/view?usp=drive_link)  [![QAT](https://img.shields.io/badge/Documentation-Official-brightgreen?style=for-the-badge&logo=read-the-docs&logoColor=white)](https://drive.google.com/file/d/1NAcysdx1-dl-sQK7LTKLyGyeSz8rvXsp/view?usp=drive_link)
+
 ---
 
 ## Table of Contents
