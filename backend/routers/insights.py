@@ -29,6 +29,7 @@ SYSTEM_PROMPT = (
 
 class Insight(BaseModel):
     id: str
+    agent: str
     urgency: str  # red | amber | teal
     headline: str
     action: str
@@ -71,6 +72,109 @@ def _signal_sort_key(signal: Dict[str, Any]) -> tuple[int, int]:
         urgency_order.get(signal["urgency"], 3),
         scope_order.get(signal["scope"], 2),
     )
+
+
+def _empty_agent_scores() -> Dict[str, int]:
+    return {
+        "Inventory Planner": 0,
+        "Market Analyst": 0,
+        "Location Scout": 0,
+        "Ops Advisor": 0,
+    }
+
+
+def _agent_scores_from_text(*parts: Any) -> Dict[str, int]:
+    text = " ".join(str(part or "") for part in parts).lower()
+    scores = _empty_agent_scores()
+
+    keyword_groups = {
+        "Inventory Planner": [
+            "inventory", "restock", "stock", "supplier", "supply", "ingredient",
+            "order", "lead time", "commodity", "cost", "margin impact", "buffer",
+            "creamer", "syrup", "milk", "price rise", "reorder",
+        ],
+        "Market Analyst": [
+            "trend", "demand", "competitor", "promo", "promotion", "bundle",
+            "discount", "pricing", "price", "matcha", "menu", "delivery",
+            "tiktok", "campaign", "loyalty", "customer", "viral",
+        ],
+        "Location Scout": [
+            "location", "site", "mrt", "rental", "rent", "pop-up", "popup",
+            "mall", "landlord", "visibility", "radius", "catchment", "expansion",
+            "kiosk", "opening", "walk-in", "walk in",
+        ],
+        "Ops Advisor": [
+            "staff", "staffing", "schedule", "shift", "queue", "prep", "weekend",
+            "holiday", "peak hour", "resource", "operations", "operational",
+            "foot traffic", "rush", "service", "throughput",
+        ],
+    }
+
+    for agent, keywords in keyword_groups.items():
+        for keyword in keywords:
+            if keyword in text:
+                scores[agent] += 2
+
+    return scores
+
+
+def _agent_scores_from_signal(signal: Dict[str, Any]) -> Dict[str, int]:
+    scores = _empty_agent_scores()
+    signal_type = str(signal.get("type") or "").lower()
+    category = str(signal.get("category") or "").lower()
+
+    if signal_type in {"competitor"} or category in {"trend", "tourism"}:
+        scores["Market Analyst"] += 4
+    if category in {"weather", "commodity", "supply_chain", "price"}:
+        scores["Inventory Planner"] += 4
+    if category in {"infrastructure", "retail"}:
+        scores["Location Scout"] += 4
+    if category in {"event", "calendar", "holiday", "labour"}:
+        scores["Ops Advisor"] += 4
+
+    if signal_type in {"disruption"}:
+        scores["Inventory Planner"] += 2
+    if signal_type in {"opportunity"}:
+        scores["Location Scout"] += 1
+        scores["Market Analyst"] += 1
+
+    text_scores = _agent_scores_from_text(
+        signal.get("title"),
+        signal.get("summary"),
+        signal.get("impact"),
+    )
+    for agent, score in text_scores.items():
+        scores[agent] += score
+
+    return scores
+
+
+def _merge_scores(*score_maps: Dict[str, int]) -> Dict[str, int]:
+    merged = _empty_agent_scores()
+    for score_map in score_maps:
+        for agent, score in score_map.items():
+            merged[agent] += score
+    return merged
+
+
+def _best_agent(scores: Dict[str, int]) -> str:
+    ranked = sorted(scores.items(), key=lambda item: (-item[1], item[0]))
+    best_agent, best_score = ranked[0]
+    return best_agent if best_score > 0 else "Market Analyst"
+
+
+def _infer_agent_name(headline: str, action: str, reasoning: str, signal_ids: List[str]) -> str:
+    lookup = _signal_lookup()
+    content_scores = _agent_scores_from_text(headline, action, reasoning)
+    signal_scores = _empty_agent_scores()
+
+    for signal_id in signal_ids:
+        signal = lookup.get(signal_id)
+        if not signal:
+            continue
+        signal_scores = _merge_scores(signal_scores, _agent_scores_from_signal(signal))
+
+    return _best_agent(_merge_scores(content_scores, signal_scores))
 
 
 def _default_action(signal: Dict[str, Any]) -> str:
@@ -124,6 +228,7 @@ def _fallback_insights() -> List[Insight]:
         insights.append(
             Insight(
                 id=f"fallback_{signal['id']}",
+                agent=_infer_agent_name(headline, _default_action(signal), _default_reasoning(signal), [signal["id"]]),
                 urgency=signal["urgency"],
                 headline=headline[:120],
                 action=_default_action(signal),
@@ -179,6 +284,7 @@ def _sanitize_ai_insights(payload: Dict[str, Any]) -> List[Insight]:
         sanitized.append(
             Insight(
                 id=f"ai_{index}",
+                agent=_infer_agent_name(headline, action, reasoning, deduped_signal_ids),
                 urgency=_normalize_urgency(item.get("urgency")),
                 headline=headline[:120],
                 action=action[:200],

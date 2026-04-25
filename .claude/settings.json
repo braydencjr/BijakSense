@@ -8,7 +8,11 @@
       "Bash(python3 -m py_compile routers/chat.py)",
       "Bash(python3 -m py_compile routers/dashboard.py)",
       "Bash(python3 -m py_compile routers/merchant.py)",
-      "Bash(python3 -m py_compile main.py)"
+      "Bash(python3 -m py_compile main.py)",
+      "Bash(docker compose *)",
+      "Bash(docker-compose ps *)",
+      "Bash(curl -s http://localhost:8000/api/insights)",
+      "Bash(python3 -m json.tool)"
     ]
   }
 }
