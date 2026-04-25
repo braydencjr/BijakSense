@@ -88,6 +88,13 @@ async def delete_inventory_item(
     await db.commit()
     return {"message": "Item deleted successfully"}
 
+@router.get("/latest-date")
+async def get_latest_price_date(db: AsyncSession = Depends(get_db)):
+    """Fetch the latest available date from the price table."""
+    result = await db.execute(select(Price.date).order_by(Price.date.desc()).limit(1))
+    latest_date = result.scalar_one_or_none()
+    return {"latest_date": latest_date or "N/A"}
+
 @router.get("/{merchant_id}", response_model=List[InventoryItemResponse])
 async def get_inventory(merchant_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     """

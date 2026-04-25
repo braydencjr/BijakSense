@@ -8,21 +8,23 @@ const MERCHANT_ID = "8899d441-6234-4ed7-85ee-64ffdef25478";
 
 /* ─── Global Dark Theme Tokens ────────────────────────────────── */
 const T = {
-  base:     '#09090F',
-  s1:       '#13141A',
-  s2:       '#1C1D25',
-  s3:       '#24252F',
-  border:   'rgba(255,255,255,0.06)',
+  base: '#09090F',
+  s1: '#13141A',
+  s2: '#1C1D25',
+  s3: '#24252F',
+  border: 'rgba(255,255,255,0.06)',
   borderMd: 'rgba(255,255,255,0.11)',
-  primary:  '#ECEEF2',
-  secondary:'#8B8FA8',
-  muted:    '#52556A',
-  teal:     '#2DD4BF',
-  tealDim:  'rgba(45,212,191,0.14)',
-  amber:    '#F59E0B',
+  primary: '#ECEEF2',
+  secondary: '#8B8FA8',
+  muted: '#52556A',
+  teal: '#2DD4BF',
+  tealDim: 'rgba(45,212,191,0.14)',
+  emerald: '#10B981',
+  emeraldDim: 'rgba(16,185,129,0.12)',
+  amber: '#F59E0B',
   amberDim: 'rgba(245,158,11,0.12)',
-  ruby:     '#F43F5E',
-  rubyDim:  'rgba(244,63,94,0.1)',
+  ruby: '#F43F5E',
+  rubyDim: 'rgba(244,63,94,0.1)',
 };
 
 export default function InventoryPlanner() {
@@ -30,7 +32,7 @@ export default function InventoryPlanner() {
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [priceRange, setPriceRange] = useState<number>(30); // Default to 30 days
-  
+
   // Reference Data States
   const [categories, setCategories] = useState<string[]>([]);
   const [itemsInCategory, setItemsInCategory] = useState<any[]>([]);
@@ -52,6 +54,27 @@ export default function InventoryPlanner() {
   });
   const [recs, setRecs] = useState<any[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [latestDate, setLatestDate] = useState<string>('Loading...');
+
+  const fetchLatestDate = async () => {
+    try {
+      const res = await fetch('http://localhost:8000/api/inventory/latest-date');
+      if (res.ok) {
+        const data = await res.json();
+        const dateStr = data.latest_date;
+        if (dateStr && dateStr !== 'N/A') {
+          // Format "YYYY-MM-DD" to "Month YYYY"
+          const date = new Date(dateStr);
+          const formatted = date.toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' });
+          setLatestDate(formatted);
+        } else {
+          setLatestDate('N/A');
+        }
+      }
+    } catch (e) {
+      setLatestDate('Error');
+    }
+  };
 
   const fetchInventory = async (range: number = priceRange) => {
     try {
@@ -62,7 +85,7 @@ export default function InventoryPlanner() {
         return;
       }
       const data = await res.json();
-      
+
       // For each item with an item_code, fetch its official history based on range
       const itemsWithHistory = await Promise.all(data.map(async (item: any) => {
         if (item.item_code) {
@@ -135,6 +158,7 @@ export default function InventoryPlanner() {
     fetchInventory();
     fetchRecs();
     fetchCategories();
+    fetchLatestDate();
   }, []);
 
   // Re-fetch history when priceRange changes
@@ -223,12 +247,12 @@ export default function InventoryPlanner() {
           latestPrice = history[history.length - 1].price;
         }
       }
-      setNewItem({ 
-        ...newItem, 
-        item_name: itemName, 
-        item_code: itemCode, 
+      setNewItem({
+        ...newItem,
+        item_name: itemName,
+        item_code: itemCode,
         unit: unit,
-        current_price_myr: latestPrice 
+        current_price_myr: latestPrice
       });
     } catch (err) {
       console.error("Failed to autofill price:", err);
@@ -244,7 +268,7 @@ export default function InventoryPlanner() {
         <div className="flex items-center justify-between max-w-7xl mx-auto">
           <div>
             <div className="flex items-center text-xs uppercase tracking-[0.2em] font-bold mb-1.5" style={{ color: T.teal }}>
-              <Package className="w-4 h-4 mr-2" /> Agent: Inventory Planner
+              <Package className="w-4 h-4 mr-2" /> Inventory Planner
             </div>
             <h1 className="text-3xl font-semibold tracking-tight">Stock & Sourcing</h1>
           </div>
@@ -279,7 +303,7 @@ export default function InventoryPlanner() {
       </header>
 
       <div className="p-8 max-w-7xl mx-auto space-y-8">
-        <motion.section 
+        <motion.section
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="rounded-2xl shadow-xl overflow-hidden"
@@ -316,7 +340,7 @@ export default function InventoryPlanner() {
                     const isAlert = item.alert || (item.supplier_reliability && item.supplier_reliability < 0.8);
 
                     return (
-                      <motion.tr 
+                      <motion.tr
                         key={item.id}
                         initial={{ opacity: 0, x: -10 }}
                         animate={{ opacity: 1, x: 0 }}
@@ -326,8 +350,8 @@ export default function InventoryPlanner() {
                         <td className="px-6 py-4 font-medium">
                           <div className="flex items-center">
                             {isAlert ? <AlertTriangle className="w-4 h-4 mr-2" style={{ color: T.ruby }} /> :
-                             isCrit ? <AlertTriangle className="w-4 h-4 mr-2" style={{ color: T.amber }} /> : 
-                             <div className="w-1.5 h-1.5 rounded-full mr-3" style={{ background: T.teal }} />}
+                              isCrit ? <AlertTriangle className="w-4 h-4 mr-2" style={{ color: T.amber }} /> :
+                                <div className="w-1.5 h-1.5 rounded-full mr-3" style={{ background: T.teal }} />}
                             {item.item_name || item.itemName}
                           </div>
                           {item.supplier_name && <div className="text-[10px] mt-1 ml-4 uppercase tracking-widest" style={{ color: T.muted }}>Lead: {item.lead_time_days}d</div>}
@@ -361,7 +385,7 @@ export default function InventoryPlanner() {
                             <button className={cn(
                               "px-4 py-1.5 rounded-lg text-xs font-bold transition-all ml-2",
                               isAlert ? "shadow-lg shadow-ruby-500/20" : isCrit ? "shadow-lg shadow-amber-500/20" : ""
-                            )} style={{ 
+                            )} style={{
                               background: isAlert ? T.ruby : isCrit ? T.amber : T.s2,
                               color: isAlert || isCrit ? '#fff' : T.primary,
                               border: isAlert || isCrit ? 'none' : `1px solid ${T.borderMd}`
@@ -380,7 +404,7 @@ export default function InventoryPlanner() {
         </motion.section>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <motion.section 
+          <motion.section
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             className="rounded-2xl shadow-xl overflow-hidden flex flex-col"
@@ -437,7 +461,7 @@ export default function InventoryPlanner() {
             </div>
           </motion.section>
 
-          <motion.section 
+          <motion.section
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, y: 0 }}
             className="rounded-2xl shadow-xl overflow-hidden"
@@ -463,18 +487,18 @@ export default function InventoryPlanner() {
             </div>
             <div className="p-6 space-y-8 max-h-[500px] overflow-y-auto scrollbar-hide">
               {inventory.filter(i => (i.price_history?.length > 0 || i.priceHistory?.length > 0)).map((item, i) => {
-                const history = (item.price_history || item.priceHistory || []).map((ph: any) => ({ 
+                const history = (item.price_history || item.priceHistory || []).map((ph: any) => ({
                   date: ph.date,
-                  value: ph.price 
+                  value: ph.price
                 }));
-                
+
                 const latestMarketPrice = history.length > 0 ? history[history.length - 1].value : 0;
                 const userPrice = item.current_price_myr || 0;
                 const diffPercent = latestMarketPrice > 0 ? ((userPrice - latestMarketPrice) / latestMarketPrice) * 100 : 0;
-                
+
                 // Color based on whether user price is above or below market
                 // If user price > market price, it's a "warning" (ruby/amber)
-                const trendColor = diffPercent > 5 ? T.ruby : diffPercent > 0 ? T.amber : T.teal;
+                const trendColor = diffPercent > 5 ? T.ruby : diffPercent > 0 ? T.amber : T.emerald;
 
                 return (
                   <div key={i} className="space-y-3">
@@ -498,11 +522,11 @@ export default function InventoryPlanner() {
                         <AreaChart data={history}>
                           <defs>
                             <linearGradient id={`colorPrice-${i}`} x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="5%" stopColor={trendColor} stopOpacity={0.3}/>
-                              <stop offset="95%" stopColor={trendColor} stopOpacity={0}/>
+                              <stop offset="5%" stopColor={trendColor} stopOpacity={0.3} />
+                              <stop offset="95%" stopColor={trendColor} stopOpacity={0} />
                             </linearGradient>
                           </defs>
-                          <Tooltip 
+                          <Tooltip
                             contentStyle={{ background: T.s3, border: `1px solid ${T.borderMd}`, borderRadius: '12px', fontSize: '10px' }}
                             itemStyle={{ color: T.primary, fontWeight: 'bold' }}
                             labelStyle={{ color: T.secondary, marginBottom: '4px' }}
@@ -535,12 +559,12 @@ export default function InventoryPlanner() {
       <AnimatePresence>
         {showAddModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               onClick={() => setShowAddModal(false)}
-              className="absolute inset-0 bg-black/80 backdrop-blur-md" 
+              className="absolute inset-0 bg-black/80 backdrop-blur-md"
             />
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
@@ -563,7 +587,7 @@ export default function InventoryPlanner() {
                     <div className="flex items-center text-[10px] font-black tracking-[0.3em]" style={{ color: T.teal }}>
                       <TrendingUp className="w-3 h-3 mr-2" /> DOSM REFERENCE DATA ENGINE
                     </div>
-                    
+
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                       <div className="space-y-2">
                         <label className="text-[10px] font-black uppercase tracking-widest opacity-60">Category</label>
@@ -632,7 +656,7 @@ export default function InventoryPlanner() {
                       placeholder="e.g. Origin Bulk Suppliers"
                     />
                   </div>
-                  
+
                   <div className="space-y-2">
                     <label className="text-[10px] font-black uppercase tracking-widest opacity-60">Initial Quantity</label>
                     <div className="relative">
@@ -735,6 +759,26 @@ export default function InventoryPlanner() {
           </div>
         )}
       </AnimatePresence>
+      <footer className="max-w-7xl mx-auto px-8 py-12 border-t mt-12" style={{ borderColor: T.border }}>
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+          <div>
+            <p className="text-xs max-w-2xl leading-relaxed" style={{ color: T.secondary }}>
+              Benchmark market prices and historical trends are powered by the <a href="https://open.dosm.gov.my/" target="_blank" rel="noopener noreferrer" className="font-bold text-primary hover:text-teal underline underline-offset-4 decoration-white/10 transition-colors">Department of Statistics Malaysia (DOSM)</a> Open Data initiative.
+              Price data is sourced from the <a href="https://open.dosm.gov.my/data-catalogue/pricecatcher" target="_blank" rel="noopener noreferrer" className="font-bold text-primary hover:text-teal underline underline-offset-4 decoration-white/10 transition-colors">PriceCatcher</a> dataset.
+              Usage is governed by the <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer" className="font-bold text-primary hover:text-teal underline underline-offset-4 decoration-white/10 transition-colors">Creative Commons Attribution 4.0 International License</a>.
+            </p>
+          </div>
+          <div className="flex items-center space-x-6 shrink-0">
+            <div className="text-right">
+              <div className="text-[10px] font-black uppercase tracking-widest mb-1" style={{ color: T.muted }}>Last Updated</div>
+              <div className="text-xs font-mono font-bold" style={{ color: T.teal }}>{latestDate}</div>
+            </div>
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-white/5 border border-white/10">
+              <Sparkles className="w-5 h-5" style={{ color: T.teal }} />
+            </div>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
