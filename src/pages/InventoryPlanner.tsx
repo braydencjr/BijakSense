@@ -387,8 +387,6 @@ export default function InventoryPlanner() {
                   lead_time_days: 3,
                   manufacturing_cost: 0,
                   shipping_cost: 0
-                  manufacturing_cost: 0,
-                  shipping_cost: 0
                 });
                 setShowAddModal(true);
               }}
