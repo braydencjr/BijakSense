@@ -71,6 +71,7 @@ The data is sourced from [OpenDOSM](https://open.dosm.gov.my/data-catalogue/pric
 AI-powered weather analysis and price predictions are powered by the [Open-Meteo API](https://open-meteo.com/).
 
 ### Model Training Data
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1jFSBd-lcWbhvCQhxSMKEvpeRSL_9Amg4?usp=sharing)
 The predictive machine learning models were trained using the **[Agrometeorological indicators from 1979 to present](https://cds.climate.copernicus.eu/datasets/sis-agrometeorological-indicators)** dataset. This provides high-resolution surface meteorological data essential for modeling agricultural yields and market price fluctuations.
 - **Source**: Contains modified Copernicus Climate Change Service information [2026] via ECMWF/EU.
 - **License**: [CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/).
