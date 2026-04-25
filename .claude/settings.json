@@ -12,7 +12,8 @@
       "Bash(docker compose *)",
       "Bash(docker-compose ps *)",
       "Bash(curl -s http://localhost:8000/api/insights)",
-      "Bash(python3 -m json.tool)"
+      "Bash(python3 -m json.tool)",
+      "Bash(.venv/bin/python -c \"from config import settings; print\\('gemini:', settings.gemini_api_key[:20] if settings.gemini_api_key else 'EMPTY'\\); print\\('zai:', settings.zai_api_key[:20] if settings.zai_api_key else 'EMPTY'\\)\")"
     ]
   }
 }
