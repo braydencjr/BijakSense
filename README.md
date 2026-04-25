@@ -74,6 +74,7 @@ AI-powered weather analysis and price predictions are powered by the [Open-Meteo
 The predictive machine learning models were trained using the **[Agrometeorological indicators from 1979 to present](https://cds.climate.copernicus.eu/datasets/sis-agrometeorological-indicators)** dataset. This provides high-resolution surface meteorological data essential for modeling agricultural yields and market price fluctuations.
 - **Source**: Contains modified Copernicus Climate Change Service information [2026] via ECMWF/EU.
 - **License**: [CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/).
-ML analysis for inventory price prediction: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1jFSBd-lcWbhvCQhxSMKEvpeRSL_9Amg4?usp=sharing)
 - **Disclaimer**: Data is provided "as is" without warranty; neither ECMWF nor the EU are liable for its use, accuracy, or any resulting damages.
 - **No Endorsement**: This project is not sponsored, approved, or endorsed by ECMWF or the European Union.
+
+ML analysis for inventory price prediction: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1jFSBd-lcWbhvCQhxSMKEvpeRSL_9Amg4?usp=sharing)
