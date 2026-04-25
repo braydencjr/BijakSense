@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="src/assets/bijaksense_logo.png" width="450" alt="BijakSense Logo" />
+  <img src="src/assets/logo.jpg" width="450" alt="BijakSense Logo" />
   <h1>BijakSense</h1>
   <p><strong>The Wise AI Decision Co-pilot for SEA SME Merchants</strong></p>
   <p>Empowering local businesses with multi-agent intelligence, real-time market data, and automated supply chain optimization.</p>
