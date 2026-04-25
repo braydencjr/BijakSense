@@ -1,3 +1,30 @@
+<div align="center">
+  <img src="src/assets/bijaksense_logo.png" width="450" alt="BijakSense Logo" />
+  <h1>BijakSense</h1>
+  <p><strong>The Wise AI Decision Co-pilot for SEA SME Merchants</strong></p>
+  <p>Empowering local businesses with multi-agent intelligence, real-time market data, and automated supply chain optimization.</p>
+</div>
+
+---
+
+## Core Features
+
+- **Intelligence Map**: Dynamic, real-time visualization of your business landscape. Monitor supply chain disruptions, weather events, and viral consumer trends as they happen.
+- **Automated Inventory Planning**: Take the guesswork out of procurement. Our AI monitors commodity price fluctuations and lead times so you are always updated and informed.
+- **Market Opportunity Detection**: Stay ahead of the competition. Detect regional trends (like the next viral food trend) before they hit your turf.
+- **Conversational Co-pilot**: A unified chat interface where you can consult our AI agent suite on any business decisions.
+
+## The Agent Suite (A2A Architecture)
+
+BijakSense operates on an **Agent-to-Agent (A2A)** architecture, where multiple specialist LLM agents collaborate to solve your problems:
+
+- **Market Analyst**: Scours the web and local data to identify consumer demand shifts, competitor pricing strategies, and emerging saturation risks.
+- **Inventory Planner**: Analyzes market prices (MYR) and weather-related logistics risks to optimize your stock levels.
+- **Ops Advisor**: Provides practical advice on staffing, operating hours, and daily logistics based on predicted foot traffic and local events.
+- **Orchestrator**: Consults with the specialists, weighs their individual perspectives, and synthesizes a single, actionable plan.
+
+---
+
 ## Run Locally
 
 **Prerequisites:**  Node.js
