@@ -44,7 +44,6 @@ View your app in AI Studio: https://ai.studio/apps/7b00d9a4-f961-4cf9-a666-ca001
    ```bash
    pip install -r requirements.txt
    ```
-   *(Note: If using Python 3.13 on Windows, you may need to update version pins in requirements.txt if builds fail.)*
 
 4. Set environment variables:
    Create a `.env` file in the `backend/` directory based on `.env.example`.
