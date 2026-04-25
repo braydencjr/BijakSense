@@ -319,6 +319,9 @@ const SIGNAL_SUPPORTING_MEDIA: Record<string, { label: string; image: string }[]
   comp_bubblebox: [
     { label: 'Bubble Box reference', image: bubbleBoxImage },
   ],
+  comp_matchadreams: [
+    { label: 'Matcha Dreams reference', image: jakartaMatchaImage },
+  ],
   comp_pearlgarden: [
     { label: 'Pearl Garden reference', image: pearlGardenImage },
   ],
@@ -334,7 +337,6 @@ export default function IntelligenceMap({ isActive = true }: IntelligenceMapProp
   const [selectedRegionalSignal, setSelectedRegionalSignal] = React.useState<string | null>(null);
   const [selectedLocalSignal, setSelectedLocalSignal] = React.useState<string | null>(null);
   const [selectedRecommendation, setSelectedRecommendation] = React.useState<string | null>(null);
-  const [showRecommendations, setShowRecommendations] = React.useState(true);
   const [selectedAlert, setSelectedAlert] = React.useState<string | null>(null);
   const [mapView, setMapView] = React.useState<'regional' | 'local'>('regional');
   const [localMapSize, setLocalMapSize] = React.useState<'large' | 'small'>('large');
@@ -362,6 +364,7 @@ export default function IntelligenceMap({ isActive = true }: IntelligenceMapProp
   React.useEffect(() => {
     setSelectedRegionalSignal(null);
     setSelectedLocalSignal(null);
+    setSelectedRecommendation(null);
   }, [mapView]);
 
   React.useEffect(() => {
@@ -464,15 +467,11 @@ export default function IntelligenceMap({ isActive = true }: IntelligenceMapProp
   const featuredRecommendation = locationRecommendations.find((rec) => rec.id === selectedRecommendation) || locationRecommendations[0] || null;
 
   React.useEffect(() => {
-    if (mapView !== 'local' || !showRecommendations) return;
-    if (locationRecommendations.length === 0) {
+    if (!selectedRecommendation) return;
+    if (!locationRecommendations.some((rec) => rec.id === selectedRecommendation)) {
       setSelectedRecommendation(null);
-      return;
     }
-    if (!selectedRecommendation || !locationRecommendations.some((rec) => rec.id === selectedRecommendation)) {
-      setSelectedRecommendation(locationRecommendations[0].id);
-    }
-  }, [mapView, selectedRecommendation, locationRecommendations, showRecommendations]);
+  }, [selectedRecommendation, locationRecommendations]);
 
   React.useEffect(() => {
     if (!isActive) return;
@@ -557,16 +556,6 @@ export default function IntelligenceMap({ isActive = true }: IntelligenceMapProp
             )}
           </div>
 
-          {!showRecommendations && mapView === 'local' && (
-            <button 
-              onClick={() => setShowRecommendations(true)}
-              className="absolute top-4 left-4 z-[1100] bg-[#111318]/90 backdrop-blur px-3 py-1.5 border border-[#00D1C1]/30 rounded-lg shadow-2xl flex items-center gap-2 hover:bg-[#00D1C1]/10 transition-colors"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-[#00D1C1]" />
-              <span className="text-[10px] font-bold text-[#00D1C1] uppercase tracking-wider">Show AI Scout</span>
-            </button>
-          )}
-
           <div className="flex-1 w-full h-full">
             <MapContainer
               key={`${mapView}-${localMapSize}`}
@@ -602,7 +591,7 @@ export default function IntelligenceMap({ isActive = true }: IntelligenceMapProp
                       key={s.id}
                       position={[s.coords.lat, s.coords.lng]}
                       icon={s.type === 'competitor' ? competitorIcon : crowdIcon}
-                      eventHandlers={{ click: () => setSelectedLocalSignal(s.id === selectedLocalSignal ? null : s.id) }}
+                      eventHandlers={{ click: () => { setSelectedLocalSignal(s.id === selectedLocalSignal ? null : s.id); setSelectedRecommendation(null); } }}
                     />
                   ))}
                   {locationRecommendations.map((rec) => (
@@ -612,8 +601,7 @@ export default function IntelligenceMap({ isActive = true }: IntelligenceMapProp
                       icon={recommendationIcon}
                       eventHandlers={{
                         click: () => {
-                          setSelectedRecommendation(rec.id);
-                          setShowRecommendations(true);
+                          setSelectedRecommendation(rec.id === selectedRecommendation ? null : rec.id);
                           setSelectedLocalSignal(null);
                         },
                       }}
@@ -625,10 +613,12 @@ export default function IntelligenceMap({ isActive = true }: IntelligenceMapProp
           </div>
 
           {mapView === 'local' && (
-            <motion.div 
+            <motion.div
               drag
               dragMomentum={false}
-              className="absolute left-4 top-4 z-[1100] w-[23rem] max-w-[calc(100%-2rem)] pointer-events-auto space-y-3"
+              dragConstraints={{ top: 0, left: 0, right: 0, bottom: 0 }}
+              dragElastic={0}
+              className="absolute right-4 bottom-4 z-[1100] w-[23rem] max-w-[calc(100%-2rem)] pointer-events-auto"
             >
               <div className="bg-[#111318]/95 border border-white/10 rounded-xl p-3 shadow-2xl backdrop-blur-md">
                 <div className="flex items-center justify-between mb-3">
@@ -637,7 +627,7 @@ export default function IntelligenceMap({ isActive = true }: IntelligenceMapProp
                      <p className="text-[11px] font-bold uppercase tracking-wide text-[#00D1C1]">AI Expansion Scout</p>
                    </div>
                    <div className="flex items-center gap-3 cursor-move">
-                     <span className="text-[9px] text-gray-400">Onboarding + map coordinates</span>
+                     <span className="text-[9px] text-gray-400">Drag to move</span>
                    </div>
                 </div>
 
@@ -706,72 +696,12 @@ export default function IntelligenceMap({ isActive = true }: IntelligenceMapProp
                   />
                 </label>
               </div>
-
-              {showRecommendations && featuredRecommendation && (
-                 <div className="bg-[#111318]/95 border border-[#00D1C1]/25 rounded-xl p-3 shadow-2xl backdrop-blur-md">
-                   <div className="flex items-start justify-between gap-2">
-                     <div>
-                       <p className="text-[10px] font-bold uppercase tracking-wide text-[#00D1C1]">Top AI Recommendation</p>
-                       <p className="text-sm font-semibold text-white mt-1">{featuredRecommendation.name}</p>
-                     </div>
-                     <div className="flex items-start gap-2">
-                       <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-[#00D1C1]/10 border border-[#00D1C1]/25 text-[#00D1C1]">
-                         SCORE {featuredRecommendation.overallScore}
-                       </span>
-                       <button 
-                         onClick={() => setShowRecommendations(false)}
-                         className="p-1 hover:bg-white/5 rounded-full transition-colors text-gray-500 hover:text-white"
-                       >
-                         <X className="w-3.5 h-3.5" />
-                       </button>
-                     </div>
-                   </div>
-
-                  <p className="text-[12px] text-gray-300 mt-2 leading-relaxed">{featuredRecommendation.summary}</p>
-                  <p className="text-[10px] text-gray-500 mt-2 leading-relaxed">{featuredRecommendation.rationale}</p>
-
-                  <div className="grid grid-cols-2 gap-2 mt-3 text-[10px]">
-                    <div className="rounded bg-white/5 border border-white/10 p-2">
-                      <p className="text-gray-500 uppercase font-bold">Location potential</p>
-                      <p className="text-[#00D1C1] font-semibold mt-1">{featuredRecommendation.locationPotentialScore.toFixed(0)}/100</p>
-                    </div>
-                    <div className="rounded bg-white/5 border border-white/10 p-2">
-                      <p className="text-gray-500 uppercase font-bold">Foot traffic</p>
-                      <p className="text-[#00D1C1] font-semibold mt-1">{featuredRecommendation.footTrafficScore.toFixed(0)}/100</p>
-                    </div>
-                    <div className="rounded bg-white/5 border border-white/10 p-2">
-                      <p className="text-gray-500 uppercase font-bold">Rent estimate</p>
-                      <p className="text-[#00D1C1] font-semibold mt-1">RM {featuredRecommendation.rentEstimateMyr.toLocaleString()}</p>
-                    </div>
-                    <div className="rounded bg-white/5 border border-white/10 p-2">
-                      <p className="text-gray-500 uppercase font-bold">Coordinates</p>
-                      <p className="text-[#00D1C1] font-semibold mt-1">{featuredRecommendation.coords.lat.toFixed(4)}, {featuredRecommendation.coords.lng.toFixed(4)}</p>
-                    </div>
-                  </div>
-
-                  <div className="mt-3 flex items-center gap-2 overflow-x-auto mm-scroll">
-                    {locationRecommendations.map((rec) => (
-                      <button
-                        key={rec.id}
-                        onClick={() => setSelectedRecommendation(rec.id)}
-                        className={`shrink-0 px-2 py-1 rounded border text-[10px] font-semibold ${selectedRecommendation === rec.id ? 'border-[#00D1C1]/40 text-[#00D1C1] bg-[#00D1C1]/10' : 'border-white/10 text-gray-400 bg-white/5'}`}
-                      >
-                        {rec.name}
-                      </button>
-                    ))}
-                  </div>
-
-                  <div className="mt-3 flex items-center gap-2 text-[10px] text-gray-400">
-                    <MapPinned className="w-3 h-3 text-[#00D1C1]" />
-                    Suggested sites are pinned as gold markers on the map.
-                  </div>
-                </div>
-              )}
             </motion.div>
           )}
 
-          {/* Signal Detail Overlays — two-column layout, right = info+source, left = images */}
+          {/* Overlays: top-left = photos, top-right = info block (competitor or AI score) */}
           <AnimatePresence>
+            {/* Regional signal overlay */}
             {mapView === 'regional' && selectedRegionalSignal && (() => {
               const s = regionalSignals.find(x => x.id === selectedRegionalSignal);
               if (!s) return null;
@@ -782,7 +712,6 @@ export default function IntelligenceMap({ isActive = true }: IntelligenceMapProp
                   initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                   className="absolute inset-0 z-[1000] flex gap-3 p-4 pointer-events-none"
                 >
-                  {/* Left column: evidence images */}
                   <div className="flex flex-col gap-3 overflow-y-auto mm-scroll pointer-events-auto shrink-0 max-w-[24rem]">
                     {media.map((item, i) => (
                       <motion.div
@@ -803,11 +732,7 @@ export default function IntelligenceMap({ isActive = true }: IntelligenceMapProp
                       </motion.div>
                     ))}
                   </div>
-
-                  {/* Spacer to push right column to the right */}
                   <div className="flex-1" />
-
-                  {/* Right column: signal info + source */}
                   <div className="flex flex-col gap-3 pointer-events-auto shrink-0 w-[24rem]">
                     <motion.div
                       key="reg-info"
@@ -825,7 +750,6 @@ export default function IntelligenceMap({ isActive = true }: IntelligenceMapProp
                         <p className="text-[11px] text-[#00D1C1] font-medium">{s.impact}</p>
                       </div>
                     </motion.div>
-
                     {media.length > 0 && (
                       <motion.div
                         key="reg-source"
@@ -854,6 +778,7 @@ export default function IntelligenceMap({ isActive = true }: IntelligenceMapProp
               );
             })()}
 
+            {/* Local competitor signal overlay — top-left photos, top-right info */}
             {mapView === 'local' && selectedLocalSignal && (() => {
               const s = displayedLocalSignals.find(x => x.id === selectedLocalSignal);
               if (!s) return null;
@@ -862,9 +787,9 @@ export default function IntelligenceMap({ isActive = true }: IntelligenceMapProp
                 <motion.div
                   key="local-overlay"
                   initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                  className="absolute inset-0 z-[1000] flex gap-3 p-4 pointer-events-none"
+                  className="absolute top-4 left-4 z-[1050] flex gap-3 pointer-events-none"
+                  style={{ maxHeight: 'calc(100% - 2rem)' }}
                 >
-                  {/* Left column: evidence images */}
                   <div className="flex flex-col gap-3 overflow-y-auto mm-scroll pointer-events-auto shrink-0 max-w-[24rem]">
                     {media.map((item, i) => (
                       <motion.div
@@ -885,66 +810,170 @@ export default function IntelligenceMap({ isActive = true }: IntelligenceMapProp
                       </motion.div>
                     ))}
                   </div>
+                </motion.div>
+              );
+            })()}
 
-                  {/* Spacer */}
-                  <div className="flex-1" />
-
-                  {/* Right column: signal info + source */}
-                  <div className="flex flex-col gap-3 pointer-events-auto shrink-0 w-[24rem]">
-                    <motion.div
-                      key="local-info"
-                      initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}
-                      className="bg-[#111318]/95 border border-[#00D1C1]/30 p-4 rounded-xl shadow-2xl backdrop-blur-md"
-                    >
-                      <div className="flex justify-between items-start mb-3">
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-[#00D1C1]/10 text-[#00D1C1] border border-[#00D1C1]/20 uppercase">
-                          {s.type}
-                        </span>
-                        <Target className="w-4 h-4 text-gray-600" />
+            {/* Competitor info — top-right */}
+            {mapView === 'local' && selectedLocalSignal && (() => {
+              const s = displayedLocalSignals.find(x => x.id === selectedLocalSignal);
+              if (!s) return null;
+              const media = SIGNAL_SUPPORTING_MEDIA[s.id] || [];
+              return (
+                <motion.div
+                  key="local-info-overlay"
+                  initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}
+                  className="absolute top-4 right-4 z-[1050] pointer-events-auto shrink-0 w-[24rem] space-y-3"
+                  style={{ maxHeight: 'calc(100% - 2rem)', overflowY: 'auto' }}
+                >
+                  <div className="bg-[#111318]/95 border border-[#00D1C1]/30 p-4 rounded-xl shadow-2xl backdrop-blur-md">
+                    <div className="flex justify-between items-start mb-3">
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-[#00D1C1]/10 text-[#00D1C1] border border-[#00D1C1]/20 uppercase">
+                        {s.type}
+                      </span>
+                      <button onClick={() => setSelectedLocalSignal(null)} className="p-1 hover:bg-white/5 rounded-full transition-colors text-gray-500 hover:text-white">
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                    <p className="font-bold text-sm mb-1">{s.name}</p>
+                    <p className="text-xs text-gray-400 leading-relaxed mb-3">{s.description}</p>
+                    <div className="p-2 rounded bg-white/5 border border-white/10 space-y-2">
+                      <div>
+                        <p className="text-[10px] font-bold text-gray-500 uppercase mb-1">Category</p>
+                        <p className="text-[11px] text-[#00D1C1] font-medium">{s.category}</p>
                       </div>
-                      <p className="font-bold text-sm mb-1">{s.name}</p>
-                      <p className="text-xs text-gray-400 leading-relaxed mb-3">{s.description}</p>
-                      <div className="p-2 rounded bg-white/5 border border-white/10 space-y-2">
-                        <div>
-                          <p className="text-[10px] font-bold text-gray-500 uppercase mb-1">Category</p>
-                          <p className="text-[11px] text-[#00D1C1] font-medium">{s.category}</p>
-                        </div>
-                        <div>
-                          <p className="text-[10px] font-bold text-gray-500 uppercase mb-1">Distance</p>
-                          <p className="text-[11px] text-[#00D1C1] font-medium">{s.distance.toFixed(1)} km away</p>
-                        </div>
-                        <div>
-                          <p className="text-[10px] font-bold text-gray-500 uppercase mb-1">Urgency</p>
-                          <p className="text-[11px] text-[#00D1C1] font-medium">{s.urgency}</p>
-                        </div>
+                      <div>
+                        <p className="text-[10px] font-bold text-gray-500 uppercase mb-1">Distance</p>
+                        <p className="text-[11px] text-[#00D1C1] font-medium">{s.distance.toFixed(1)} km away</p>
                       </div>
-                    </motion.div>
+                      <div>
+                        <p className="text-[10px] font-bold text-gray-500 uppercase mb-1">Urgency</p>
+                        <p className="text-[11px] text-[#00D1C1] font-medium">{s.urgency}</p>
+                      </div>
+                    </div>
+                  </div>
+                  {media.length > 0 && (
+                    <div className="bg-[#111318]/95 border border-amber-400/20 p-4 rounded-xl shadow-2xl backdrop-blur-md">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-1.5 h-1.5 rounded-full bg-[#00D1C1]" />
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Source</p>
+                      </div>
+                      <div className="space-y-1">
+                        {media.map((item, i) => (
+                          <div key={`src-${i}`} className="flex items-center gap-2">
+                            <svg className="w-3 h-3 text-[#00D1C1] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            <p className="text-[11px] text-[#00D1C1] font-medium">{item.label}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </motion.div>
+              );
+            })()}
 
-                    {media.length > 0 && (
+            {/* Golden marker (AI recommendation) overlay — top-left photos, top-right AI score card */}
+            {mapView === 'local' && selectedRecommendation && featuredRecommendation && (() => {
+              const oppId = selectedRecommendation.replace('rec-', '');
+              const media = SIGNAL_SUPPORTING_MEDIA[oppId] || [];
+              return (
+                <>
+                  {/* Photos — top-left */}
+                  <motion.div
+                    key="rec-photos"
+                    initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
+                    className="absolute top-4 left-4 z-[1050] pointer-events-auto shrink-0 max-w-[24rem] space-y-3"
+                    style={{ maxHeight: 'calc(100% - 2rem)', overflowY: 'auto' }}
+                  >
+                    {media.map((item, i) => (
                       <motion.div
-                        key="local-source"
-                        initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}
-                        transition={{ delay: 0.08 }}
-                        className="bg-[#111318]/95 border border-amber-400/20 p-4 rounded-xl shadow-2xl backdrop-blur-md"
+                        key={`rec-img-${i}`}
+                        initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }}
+                        transition={{ delay: i * 0.06 }}
+                        className="rounded-xl overflow-hidden shadow-2xl border border-white/10 bg-[#0B0D10] backdrop-blur-md"
                       >
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className="w-1.5 h-1.5 rounded-full bg-[#00D1C1]" />
-                          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Source</p>
+                        <div className="px-3 py-2 border-b border-white/10 bg-white/[0.03] flex items-center gap-2">
+                          <span className="w-4 h-4 rounded bg-amber-400/10 border border-amber-400/30 flex items-center justify-center text-[8px] font-bold text-amber-400">
+                            {i + 1}
+                          </span>
+                          <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">{item.label}</p>
                         </div>
-                        <div className="space-y-1">
-                          {media.map((item, i) => (
-                            <div key={`src-${i}`} className="flex items-center gap-2">
-                              <svg className="w-3 h-3 text-[#00D1C1] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                              </svg>
-                              <p className="text-[11px] text-[#00D1C1] font-medium">{item.label}</p>
-                            </div>
-                          ))}
+                        <div className="p-2 flex items-center justify-center bg-[#08090C]">
+                          <img src={item.image} alt={item.label} className="w-full h-auto max-h-[200px] object-contain rounded" />
                         </div>
                       </motion.div>
-                    )}
-                  </div>
-                </motion.div>
+                    ))}
+                  </motion.div>
+
+                  {/* AI score card — top-right */}
+                  <motion.div
+                    key="rec-info"
+                    initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}
+                    className="absolute top-4 right-4 z-[1050] pointer-events-auto shrink-0 w-[24rem]"
+                    style={{ maxHeight: 'calc(100% - 2rem)', overflowY: 'auto' }}
+                  >
+                    <div className="bg-[#111318]/95 border border-[#00D1C1]/25 rounded-xl p-4 shadow-2xl backdrop-blur-md">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="text-[10px] font-bold uppercase tracking-wide text-[#00D1C1]">Top AI Recommendation</p>
+                          <p className="text-sm font-semibold text-white mt-1">{featuredRecommendation.name}</p>
+                        </div>
+                        <div className="flex items-start gap-2">
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-[#00D1C1]/10 border border-[#00D1C1]/25 text-[#00D1C1]">
+                            SCORE {featuredRecommendation.overallScore}
+                          </span>
+                          <button
+                            onClick={() => setSelectedRecommendation(null)}
+                            className="p-1 hover:bg-white/5 rounded-full transition-colors text-gray-500 hover:text-white"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+
+                      <p className="text-[12px] text-gray-300 mt-2 leading-relaxed">{featuredRecommendation.summary}</p>
+                      <p className="text-[10px] text-gray-500 mt-2 leading-relaxed">{featuredRecommendation.rationale}</p>
+
+                      <div className="grid grid-cols-2 gap-2 mt-3 text-[10px]">
+                        <div className="rounded bg-white/5 border border-white/10 p-2">
+                          <p className="text-gray-500 uppercase font-bold">Location potential</p>
+                          <p className="text-[#00D1C1] font-semibold mt-1">{featuredRecommendation.locationPotentialScore.toFixed(0)}/100</p>
+                        </div>
+                        <div className="rounded bg-white/5 border border-white/10 p-2">
+                          <p className="text-gray-500 uppercase font-bold">Foot traffic</p>
+                          <p className="text-[#00D1C1] font-semibold mt-1">{featuredRecommendation.footTrafficScore.toFixed(0)}/100</p>
+                        </div>
+                        <div className="rounded bg-white/5 border border-white/10 p-2">
+                          <p className="text-gray-500 uppercase font-bold">Rent estimate</p>
+                          <p className="text-[#00D1C1] font-semibold mt-1">RM {featuredRecommendation.rentEstimateMyr.toLocaleString()}</p>
+                        </div>
+                        <div className="rounded bg-white/5 border border-white/10 p-2">
+                          <p className="text-gray-500 uppercase font-bold">Coordinates</p>
+                          <p className="text-[#00D1C1] font-semibold mt-1">{featuredRecommendation.coords.lat.toFixed(4)}, {featuredRecommendation.coords.lng.toFixed(4)}</p>
+                        </div>
+                      </div>
+
+                      <div className="mt-3 flex items-center gap-2 overflow-x-auto mm-scroll">
+                        {locationRecommendations.map((rec) => (
+                          <button
+                            key={rec.id}
+                            onClick={() => setSelectedRecommendation(rec.id)}
+                            className={`shrink-0 px-2 py-1 rounded border text-[10px] font-semibold ${selectedRecommendation === rec.id ? 'border-[#00D1C1]/40 text-[#00D1C1] bg-[#00D1C1]/10' : 'border-white/10 text-gray-400 bg-white/5'}`}
+                          >
+                            {rec.name}
+                          </button>
+                        ))}
+                      </div>
+
+                      <div className="mt-3 flex items-center gap-2 text-[10px] text-gray-400">
+                        <MapPinned className="w-3 h-3 text-[#00D1C1]" />
+                        Suggested sites are pinned as gold markers on the map.
+                      </div>
+                    </div>
+                  </motion.div>
+                </>
               );
             })()}
           </AnimatePresence>
