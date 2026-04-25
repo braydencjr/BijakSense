@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Package, AlertTriangle, TrendingUp, Calendar, ArrowRight, ArrowDown, ArrowUp, Loader2, Plus, X, Pencil, ChevronDown, Sparkles } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { AreaChart, Area, ResponsiveContainer, YAxis } from 'recharts';
+import { AreaChart, Area, ResponsiveContainer, YAxis, Tooltip, XAxis } from 'recharts';
 import { motion, AnimatePresence } from 'motion/react';
 
 const MERCHANT_ID = "8899d441-6234-4ed7-85ee-64ffdef25478";
@@ -29,6 +29,7 @@ export default function InventoryPlanner() {
   const [inventory, setInventory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [priceRange, setPriceRange] = useState<number>(30); // Default to 30 days
   
   // Reference Data States
   const [categories, setCategories] = useState<string[]>([]);
@@ -52,7 +53,7 @@ export default function InventoryPlanner() {
   const [recs, setRecs] = useState<any[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  const fetchInventory = async () => {
+  const fetchInventory = async (range: number = priceRange) => {
     try {
       setLoading(true);
       const res = await fetch(`http://localhost:8000/api/inventory/${MERCHANT_ID}`);
@@ -62,11 +63,11 @@ export default function InventoryPlanner() {
       }
       const data = await res.json();
       
-      // For each item with an item_code, fetch its official history if it doesn't have internal history
+      // For each item with an item_code, fetch its official history based on range
       const itemsWithHistory = await Promise.all(data.map(async (item: any) => {
-        if (item.item_code && (!item.price_history || item.price_history.length === 0)) {
+        if (item.item_code) {
           try {
-            const hRes = await fetch(`http://localhost:8000/api/inventory/history/${item.item_code}`);
+            const hRes = await fetch(`http://localhost:8000/api/inventory/history/${item.item_code}?days=${range}`);
             if (hRes.ok) {
               const hData = await hRes.json();
               return { ...item, price_history: hData };
@@ -136,6 +137,13 @@ export default function InventoryPlanner() {
     fetchCategories();
   }, []);
 
+  // Re-fetch history when priceRange changes
+  useEffect(() => {
+    if (inventory.length > 0) {
+      fetchInventory(priceRange);
+    }
+  }, [priceRange]);
+
   const handleAddItem = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -204,16 +212,14 @@ export default function InventoryPlanner() {
     }
   };
 
-  // Autofill logic when reference item is selected
   const handleReferenceItemSelect = async (itemCode: number, itemName: string, unit: string) => {
     try {
       setLoadingItems(true);
-      const res = await fetch(`http://localhost:8000/api/inventory/history/${itemCode}`);
+      const res = await fetch(`http://localhost:8000/api/inventory/history/${itemCode}?days=1`);
       let latestPrice = 0;
       if (res.ok) {
         const history = await res.json();
         if (history.length > 0) {
-          // Last element is the latest price since it's sorted by date ASC
           latestPrice = history[history.length - 1].price;
         }
       }
@@ -437,13 +443,38 @@ export default function InventoryPlanner() {
             className="rounded-2xl shadow-xl overflow-hidden"
             style={{ background: T.s1, border: `1px solid ${T.border}` }}
           >
-            <div className="px-6 py-5 border-b" style={{ borderColor: T.border }}>
-              <h2 className="font-semibold text-lg">Market Price Analytics (30d)</h2>
+            <div className="px-6 py-5 border-b flex items-center justify-between" style={{ borderColor: T.border }}>
+              <h2 className="font-semibold text-lg">Market Price Analytics</h2>
+              <div className="flex bg-black/40 p-1 rounded-xl border border-white/5">
+                {[7, 30, 90].map(days => (
+                  <button
+                    key={days}
+                    onClick={() => setPriceRange(days)}
+                    className={cn(
+                      "px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all",
+                      priceRange === days ? "bg-teal text-white shadow-lg shadow-teal-500/20" : "text-muted hover:text-primary"
+                    )}
+                    style={{ background: priceRange === days ? T.teal : 'transparent' }}
+                  >
+                    {days}D
+                  </button>
+                ))}
+              </div>
             </div>
-            <div className="p-6 space-y-8">
-              {inventory.filter(i => (i.price_history?.length > 0 || i.priceHistory?.length > 0)).slice(0, 3).map((item, i) => {
-                const history = (item.price_history || item.priceHistory || []).map((ph: any) => ({ value: ph.price }));
-                const trendColor = item.trend === 'spike' ? T.ruby : item.trend === 'up' ? T.amber : T.teal;
+            <div className="p-6 space-y-8 max-h-[500px] overflow-y-auto scrollbar-hide">
+              {inventory.filter(i => (i.price_history?.length > 0 || i.priceHistory?.length > 0)).map((item, i) => {
+                const history = (item.price_history || item.priceHistory || []).map((ph: any) => ({ 
+                  date: ph.date,
+                  value: ph.price 
+                }));
+                
+                const latestMarketPrice = history.length > 0 ? history[history.length - 1].value : 0;
+                const userPrice = item.current_price_myr || 0;
+                const diffPercent = latestMarketPrice > 0 ? ((userPrice - latestMarketPrice) / latestMarketPrice) * 100 : 0;
+                
+                // Color based on whether user price is above or below market
+                // If user price > market price, it's a "warning" (ruby/amber)
+                const trendColor = diffPercent > 5 ? T.ruby : diffPercent > 0 ? T.amber : T.teal;
 
                 return (
                   <div key={i} className="space-y-3">
@@ -454,25 +485,34 @@ export default function InventoryPlanner() {
                       </div>
                       <div className="text-right">
                         <span className="block font-mono text-lg font-black" style={{ color: T.teal }}>
-                          RM {(item.current_price_myr || item.currentPriceMyr || 0).toFixed(2)}
+                          RM {userPrice.toFixed(2)}
                         </span>
                         <div className="flex items-center justify-end text-[10px] font-bold" style={{ color: trendColor }}>
-                          {item.trend === 'spike' || item.trend === 'up' ? <ArrowUp className="w-3 h-3 mr-1" /> : <ArrowDown className="w-3 h-3 mr-1" />}
-                          {Math.floor(Math.random() * 10)}% VS LAST WEEK
+                          {diffPercent > 0 ? <ArrowUp className="w-3 h-3 mr-1" /> : <ArrowDown className="w-3 h-3 mr-1" />}
+                          {Math.abs(diffPercent).toFixed(1)}% VS MARKET
                         </div>
                       </div>
                     </div>
-                    <div className="h-24 w-full rounded-xl overflow-hidden relative bg-black/20 p-2 border" style={{ borderColor: T.border }}>
+                    <div className="h-28 w-full rounded-xl overflow-hidden relative bg-black/20 p-2 border" style={{ borderColor: T.border }}>
                       <ResponsiveContainer width="100%" height="100%">
                         <AreaChart data={history}>
-                          <YAxis domain={['auto', 'auto']} hide />
+                          <defs>
+                            <linearGradient id={`colorPrice-${i}`} x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor={trendColor} stopOpacity={0.3}/>
+                              <stop offset="95%" stopColor={trendColor} stopOpacity={0}/>
+                            </linearGradient>
+                          </defs>
+                          <Tooltip 
+                            contentStyle={{ background: T.s3, border: `1px solid ${T.borderMd}`, borderRadius: '12px', fontSize: '10px' }}
+                            itemStyle={{ color: T.primary, fontWeight: 'bold' }}
+                            labelStyle={{ color: T.secondary, marginBottom: '4px' }}
+                          />
                           <Area
                             type="monotone"
                             dataKey="value"
                             stroke={trendColor}
-                            fill={trendColor}
-                            fillOpacity={0.15}
-                            strokeWidth={2}
+                            fill={`url(#colorPrice-${i})`}
+                            strokeWidth={2.5}
                             animationDuration={1500}
                           />
                         </AreaChart>

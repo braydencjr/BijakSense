@@ -116,18 +116,20 @@ async def get_inventory_item(item_id: uuid.UUID, db: AsyncSession = Depends(get_
         raise HTTPException(status_code=404, detail="Inventory item not found")
     return item
 @router.get("/history/{item_code}")
-async def get_item_price_history(item_code: int, db: AsyncSession = Depends(get_db)):
-    """Fetch historical average prices for a specific item code from the price table."""
+async def get_item_price_history(
+    item_code: int, 
+    days: int = 30,
+    db: AsyncSession = Depends(get_db)
+):
+    """Fetch historical average prices for a specific item code, filtered by days."""
     from sqlalchemy import func
     
-    # Get the last 30 distinct dates available for this item
-    # We'll average the price across all premises for each date
     query = (
         select(Price.date, func.avg(Price.price).label("avg_price"))
         .where(Price.item_code == item_code)
         .group_by(Price.date)
         .order_by(Price.date.desc())
-        .limit(30)
+        .limit(days)
     )
     
     result = await db.execute(query)
