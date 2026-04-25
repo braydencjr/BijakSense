@@ -25,7 +25,9 @@ class IngredientResponse(IngredientBase):
 
 class InventoryItemBase(BaseModel):
     item_name: str
+    item_code: Optional[int] = None
     quantity: float = 0.0
+
     unit: str = "kg"
     reorder_threshold: float = 10.0
     current_price_myr: float = 0.0

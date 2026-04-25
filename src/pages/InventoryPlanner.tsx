@@ -39,6 +39,7 @@ export default function InventoryPlanner() {
 
   const [newItem, setNewItem] = useState({
     item_name: '',
+    item_code: null as number | null,
     quantity: 0,
     unit: 'kg',
     reorder_threshold: 10,
@@ -60,7 +61,24 @@ export default function InventoryPlanner() {
         return;
       }
       const data = await res.json();
-      setInventory(data);
+      
+      // For each item with an item_code, fetch its official history if it doesn't have internal history
+      const itemsWithHistory = await Promise.all(data.map(async (item: any) => {
+        if (item.item_code && (!item.price_history || item.price_history.length === 0)) {
+          try {
+            const hRes = await fetch(`http://localhost:8000/api/inventory/history/${item.item_code}`);
+            if (hRes.ok) {
+              const hData = await hRes.json();
+              return { ...item, price_history: hData };
+            }
+          } catch (e) {
+            console.error("Failed to fetch history for item:", item.item_code);
+          }
+        }
+        return item;
+      }));
+
+      setInventory(itemsWithHistory);
     } catch (err) {
       setInventory([]);
     } finally {
@@ -139,6 +157,7 @@ export default function InventoryPlanner() {
         fetchInventory();
         setNewItem({
           item_name: '',
+          item_code: null,
           quantity: 0,
           unit: 'kg',
           reorder_threshold: 10,
@@ -157,6 +176,7 @@ export default function InventoryPlanner() {
   const handleEditItem = (item: any) => {
     setNewItem({
       item_name: item.item_name || item.itemName,
+      item_code: item.item_code || null,
       quantity: item.quantity,
       unit: item.unit,
       reorder_threshold: item.reorder_threshold || item.reorderThreshold,
@@ -184,6 +204,34 @@ export default function InventoryPlanner() {
     }
   };
 
+  // Autofill logic when reference item is selected
+  const handleReferenceItemSelect = async (itemCode: number, itemName: string, unit: string) => {
+    try {
+      setLoadingItems(true);
+      const res = await fetch(`http://localhost:8000/api/inventory/history/${itemCode}`);
+      let latestPrice = 0;
+      if (res.ok) {
+        const history = await res.json();
+        if (history.length > 0) {
+          // Last element is the latest price since it's sorted by date ASC
+          latestPrice = history[history.length - 1].price;
+        }
+      }
+      setNewItem({ 
+        ...newItem, 
+        item_name: itemName, 
+        item_code: itemCode, 
+        unit: unit,
+        current_price_myr: latestPrice 
+      });
+    } catch (err) {
+      console.error("Failed to autofill price:", err);
+      setNewItem({ ...newItem, item_name: itemName, item_code: itemCode, unit: unit });
+    } finally {
+      setLoadingItems(false);
+    }
+  };
+
   return (
     <div className="flex-1 overflow-y-auto h-full font-sans relative transition-colors duration-500" style={{ background: T.base, color: T.primary }}>
       <header className="px-8 py-6 sticky top-0 z-30 backdrop-blur-md" style={{ background: `${T.s1}cc`, borderBottom: `1px solid ${T.border}` }}>
@@ -203,6 +251,7 @@ export default function InventoryPlanner() {
                 setItemsInCategory([]);
                 setNewItem({
                   item_name: '',
+                  item_code: null,
                   quantity: 0,
                   unit: 'kg',
                   reorder_threshold: 10,
@@ -384,7 +433,7 @@ export default function InventoryPlanner() {
 
           <motion.section 
             initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
+            animate={{ opacity: 1, y: 0 }}
             className="rounded-2xl shadow-xl overflow-hidden"
             style={{ background: T.s1, border: `1px solid ${T.border}` }}
           >
@@ -506,7 +555,7 @@ export default function InventoryPlanner() {
                             onChange={(e) => {
                               const item = itemsInCategory.find(i => i.item === e.target.value);
                               if (item) {
-                                setNewItem({ ...newItem, item_name: item.item, unit: item.unit });
+                                handleReferenceItemSelect(item.item_code, item.item, item.unit);
                               }
                             }}
                           >
@@ -583,13 +632,16 @@ export default function InventoryPlanner() {
 
                   <div className="space-y-2">
                     <label className="text-[10px] font-black uppercase tracking-widest opacity-60">Purchase Price (RM)</label>
-                    <input
-                      type="number" required step="0.01"
-                      className="w-full h-11 px-4 text-sm rounded-xl outline-none focus:ring-2 border"
-                      style={{ background: T.base, borderColor: T.borderMd, color: T.primary }}
-                      value={newItem.current_price_myr}
-                      onChange={e => setNewItem({ ...newItem, current_price_myr: parseFloat(e.target.value) })}
-                    />
+                    <div className="relative">
+                      <input
+                        type="number" required step="0.01"
+                        className="w-full h-11 px-4 text-sm rounded-xl outline-none focus:ring-2 border"
+                        style={{ background: T.base, borderColor: T.borderMd, color: T.primary }}
+                        value={newItem.current_price_myr}
+                        onChange={e => setNewItem({ ...newItem, current_price_myr: parseFloat(e.target.value) })}
+                      />
+                      {loadingItems && <Loader2 className="absolute right-4 top-3 w-4 h-4 animate-spin text-teal" style={{ color: T.teal }} />}
+                    </div>
                   </div>
                 </div>
 

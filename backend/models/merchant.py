@@ -52,6 +52,7 @@ class InventoryItem(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     merchant_id = Column(UUID(as_uuid=True), ForeignKey("merchants.id"), nullable=False)
     item_name = Column(String(100), nullable=False)
+    item_code = Column(Integer, nullable=True) # Linked to DOSM reference table
     quantity = Column(Float, default=0.0)
     unit = Column(String(20), default="kg")
     reorder_threshold = Column(Float, default=10.0)
@@ -96,3 +97,12 @@ class LookupPremise(Base):
     premise_type = Column(String)
     state = Column(String)
     district = Column(String)
+
+class Price(Base):
+    __tablename__ = "price"
+
+    id = Column(Integer, primary_key=True)
+    item_code = Column(Integer)
+    premise_code = Column(Integer)
+    date = Column(String) # Date is stored as string in the dataset usually
+    price = Column(Float)

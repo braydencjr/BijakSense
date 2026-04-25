@@ -12,7 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from database import get_db
-from models.merchant import InventoryItem, Merchant, LookupItem
+from models.merchant import InventoryItem, Merchant, LookupItem, Price
 from schemas.merchant import InventoryItemResponse, InventoryItemBase
 
 router = APIRouter(prefix="/api/inventory", tags=["Inventory"])
@@ -115,3 +115,26 @@ async def get_inventory_item(item_id: uuid.UUID, db: AsyncSession = Depends(get_
     if not item:
         raise HTTPException(status_code=404, detail="Inventory item not found")
     return item
+@router.get("/history/{item_code}")
+async def get_item_price_history(item_code: int, db: AsyncSession = Depends(get_db)):
+    """Fetch historical average prices for a specific item code from the price table."""
+    from sqlalchemy import func
+    
+    # Get the last 30 distinct dates available for this item
+    # We'll average the price across all premises for each date
+    query = (
+        select(Price.date, func.avg(Price.price).label("avg_price"))
+        .where(Price.item_code == item_code)
+        .group_by(Price.date)
+        .order_by(Price.date.desc())
+        .limit(30)
+    )
+    
+    result = await db.execute(query)
+    history = result.all()
+    
+    # Return sorted by date ascending for the chart
+    return sorted(
+        [{"date": row.date, "price": float(row.avg_price)} for row in history],
+        key=lambda x: x["date"]
+    )
