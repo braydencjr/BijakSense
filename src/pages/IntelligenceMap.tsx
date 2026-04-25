@@ -1,7 +1,7 @@
 import React from 'react';
 import { MapContainer, TileLayer, Marker, Polyline, Circle, useMap } from 'react-leaflet';
 import { motion, AnimatePresence } from 'motion/react';
-import { Bell, Target, Zap, Sparkles, MapPinned } from 'lucide-react';
+import { Bell, Target, Zap, Sparkles, MapPinned, X } from 'lucide-react';
 import { MERCHANT_INFO } from '../data/mock';
 import { getCached, setCache, isCached } from '../lib/cache';
 import L from 'leaflet';
@@ -334,6 +334,7 @@ export default function IntelligenceMap({ isActive = true }: IntelligenceMapProp
   const [selectedRegionalSignal, setSelectedRegionalSignal] = React.useState<string | null>(null);
   const [selectedLocalSignal, setSelectedLocalSignal] = React.useState<string | null>(null);
   const [selectedRecommendation, setSelectedRecommendation] = React.useState<string | null>(null);
+  const [showRecommendations, setShowRecommendations] = React.useState(true);
   const [selectedAlert, setSelectedAlert] = React.useState<string | null>(null);
   const [mapView, setMapView] = React.useState<'regional' | 'local'>('regional');
   const [localMapSize, setLocalMapSize] = React.useState<'large' | 'small'>('large');
@@ -425,12 +426,25 @@ export default function IntelligenceMap({ isActive = true }: IntelligenceMapProp
     setSelectedRegionalSignal(regionalSignals[0].id);
   }, [mapView, selectedRegionalSignal, regionalSignals]);
 
-  const getUrgencyColor = (u: string) => u === 'red' ? '#ef4444' : u === 'amber' ? '#f59e0b' : '#14b8a6';
-  const createDotIcon = (color: string) => L.divIcon({ className: 'bg-transparent', html: `<div class="mm-signal-dot" style="background:${color}; width:16px; height:16px; border-radius:50%; box-shadow: 0 0 15px ${color};"></div>`, iconSize: [16, 16], iconAnchor: [8, 8] });
-  const merchantIcon = L.divIcon({ className: 'bg-transparent', html: `<div class="mm-merchant-dot" style="width:24px; height:24px; background:#fff; border:4px solid #14b8a6; border-radius:50%; box-shadow: 0 0 20px #14b8a6;"></div>`, iconSize: [24, 24], iconAnchor: [12, 12] });
-  const competitorIcon = L.divIcon({ className: 'bg-transparent', html: `<div style="width:14px; height:14px; background:#FF4B4B; border:2px solid #fff; border-radius:50%; box-shadow:0 0 8px #FF4B4B;"></div>`, iconSize: [14, 14], iconAnchor: [7, 7] });
-  const crowdIcon = L.divIcon({ className: 'bg-transparent', html: `<div style="width:14px; height:14px; background:#00D1C1; border:2px solid #fff; border-radius:50%; box-shadow:0 0 8px #00D1C1;"></div>`, iconSize: [14, 14], iconAnchor: [7, 7] });
-  const recommendationIcon = L.divIcon({ className: 'bg-transparent', html: `<div style="width:18px; height:18px; background:#f59e0b; border:2px solid #fff; border-radius:6px; transform: rotate(45deg); box-shadow:0 0 10px rgba(245,158,11,0.9);"></div>`, iconSize: [18, 18], iconAnchor: [9, 9] });
+  const getUrgencyColor = React.useCallback((u: string) => u === 'red' ? '#ef4444' : u === 'amber' ? '#f59e0b' : '#14b8a6', []);
+
+  const iconCache = React.useRef<Record<string, L.DivIcon>>({});
+  const getDotIcon = React.useCallback((color: string) => {
+    if (!iconCache.current[color]) {
+      iconCache.current[color] = L.divIcon({
+        className: 'bg-transparent',
+        html: `<div class="mm-signal-dot" style="background:${color}; width:16px; height:16px; border-radius:50%; box-shadow: 0 0 15px ${color};"></div>`,
+        iconSize: [16, 16],
+        iconAnchor: [8, 8]
+      });
+    }
+    return iconCache.current[color];
+  }, []);
+
+  const merchantIcon = React.useMemo(() => L.divIcon({ className: 'bg-transparent', html: `<div class="mm-merchant-dot" style="width:24px; height:24px; background:#fff; border:4px solid #14b8a6; border-radius:50%; box-shadow: 0 0 20px #14b8a6;"></div>`, iconSize: [24, 24], iconAnchor: [12, 12] }), []);
+  const competitorIcon = React.useMemo(() => L.divIcon({ className: 'bg-transparent', html: `<div style="width:14px; height:14px; background:#FF4B4B; border:2px solid #fff; border-radius:50%; box-shadow:0 0 8px #FF4B4B;"></div>`, iconSize: [14, 14], iconAnchor: [7, 7] }), []);
+  const crowdIcon = React.useMemo(() => L.divIcon({ className: 'bg-transparent', html: `<div style="width:14px; height:14px; background:#00D1C1; border:2px solid #fff; border-radius:50%; box-shadow:0 0 8px #00D1C1;"></div>`, iconSize: [14, 14], iconAnchor: [7, 7] }), []);
+  const recommendationIcon = React.useMemo(() => L.divIcon({ className: 'bg-transparent', html: `<div style="width:18px; height:18px; background:#f59e0b; border:2px solid #fff; border-radius:6px; transform: rotate(45deg); box-shadow:0 0 10px rgba(245,158,11,0.9);"></div>`, iconSize: [18, 18], iconAnchor: [9, 9] }), []);
 
   const displayRadiusMeters = Math.round(onboarding.maxDistanceKm * 1000);
   const interactiveLocalSignals = React.useMemo(
@@ -450,7 +464,7 @@ export default function IntelligenceMap({ isActive = true }: IntelligenceMapProp
   const featuredRecommendation = locationRecommendations.find((rec) => rec.id === selectedRecommendation) || locationRecommendations[0] || null;
 
   React.useEffect(() => {
-    if (mapView !== 'local') return;
+    if (mapView !== 'local' || !showRecommendations) return;
     if (locationRecommendations.length === 0) {
       setSelectedRecommendation(null);
       return;
@@ -458,7 +472,7 @@ export default function IntelligenceMap({ isActive = true }: IntelligenceMapProp
     if (!selectedRecommendation || !locationRecommendations.some((rec) => rec.id === selectedRecommendation)) {
       setSelectedRecommendation(locationRecommendations[0].id);
     }
-  }, [mapView, selectedRecommendation, locationRecommendations]);
+  }, [mapView, selectedRecommendation, locationRecommendations, showRecommendations]);
 
   React.useEffect(() => {
     if (!isActive) return;
@@ -486,12 +500,26 @@ export default function IntelligenceMap({ isActive = true }: IntelligenceMapProp
       <style>{`
         .leaflet-container { background: #111318 !important; width: 100%; height: 100%; }
         .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(0.85) saturate(0.8); }
-        .mm-signal-dot { animation: mmPulse 1.8s ease-in-out infinite; }
-        @keyframes mmPulse { 0% { transform: scale(0.92); opacity: 0.7; } 50% { transform: scale(1.2); opacity: 1; } 100% { transform: scale(0.92); opacity: 0.7; } }
+        .mm-signal-dot { animation: mmPulse 2.5s ease-in-out infinite; }
+        @keyframes mmPulse { 0% { opacity: 0.6; filter: brightness(1) blur(0px); } 50% { opacity: 1; filter: brightness(1.4) blur(0.5px); } 100% { opacity: 0.6; filter: brightness(1) blur(0px); } }
         .mm-merchant-dot { animation: mmGlow 2.2s ease-in-out infinite; }
         @keyframes mmGlow { 0% { box-shadow: 0 0 8px rgba(20,184,166,0.4); } 50% { box-shadow: 0 0 24px rgba(20,184,166,1); } 100% { box-shadow: 0 0 8px rgba(20,184,166,0.4); } }
         .mm-scroll::-webkit-scrollbar { height: 4px; }
         .mm-scroll::-webkit-scrollbar-thumb { background: rgba(0,209,193,0.3); border-radius: 2px; }
+        .mm-input {
+          background: linear-gradient(145deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%);
+          transition: all 0.2s ease;
+        }
+        .mm-input:focus {
+          border-color: #00D1C1 !important;
+          background: rgba(0,209,193,0.05);
+          box-shadow: 0 0 0 1px rgba(0,209,193,0.2);
+          outline: none;
+        }
+        select option {
+          background-color: #111318;
+          color: #F8F9FA;
+        }
       `}</style>
 
       {/* Header */}
@@ -519,7 +547,7 @@ export default function IntelligenceMap({ isActive = true }: IntelligenceMapProp
       {/* Main Body */}
       <div className="flex flex-1 overflow-hidden h-full">
         <main className="flex-1 flex flex-col relative z-10 h-full overflow-hidden">
-          <div className="absolute top-4 left-4 z-[1000] bg-[#111318]/90 backdrop-blur p-2 border border-[#00D1C1]/30 rounded shadow-2xl">
+          <div className="absolute top-4 right-4 z-[1000] bg-[#111318]/90 backdrop-blur p-2 border border-[#00D1C1]/30 rounded shadow-2xl">
             <div className="flex items-center gap-2">
               <Zap className="w-3 h-3 text-[#00D1C1]" />
               <p className="text-[10px] font-medium text-gray-400">{mapView === 'regional' ? 'SEA-LEVEL TRACKING' : `LOCAL ${onboarding.maxDistanceKm.toFixed(1)}KM RADIUS`}</p>
@@ -528,6 +556,16 @@ export default function IntelligenceMap({ isActive = true }: IntelligenceMapProp
               <p className="text-[9px] mt-1 font-bold text-[#00D1C1]">◉ Detection: {activeHotspot.name}</p>
             )}
           </div>
+
+          {!showRecommendations && mapView === 'local' && (
+            <button 
+              onClick={() => setShowRecommendations(true)}
+              className="absolute top-4 left-4 z-[1100] bg-[#111318]/90 backdrop-blur px-3 py-1.5 border border-[#00D1C1]/30 rounded-lg shadow-2xl flex items-center gap-2 hover:bg-[#00D1C1]/10 transition-colors"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-[#00D1C1]" />
+              <span className="text-[10px] font-bold text-[#00D1C1] uppercase tracking-wider">Show AI Scout</span>
+            </button>
+          )}
 
           <div className="flex-1 w-full h-full">
             <MapContainer
@@ -547,7 +585,7 @@ export default function IntelligenceMap({ isActive = true }: IntelligenceMapProp
                   <React.Fragment key={s.id}>
                     <Marker
                       position={[s.coords.lat, s.coords.lng]}
-                      icon={createDotIcon(color)}
+                      icon={getDotIcon(color)}
                       eventHandlers={{ click: () => setSelectedRegionalSignal(s.id === selectedRegionalSignal ? null : s.id) }}
                     />
                     {s.urgency === 'red' && <Polyline positions={[[s.coords.lat, s.coords.lng], [MERCHANT_INFO.coordinates.lat, MERCHANT_INFO.coordinates.lng]]} pathOptions={{ color, weight: 1, opacity: 0.4, dashArray: '5, 5' }} />}
@@ -575,6 +613,7 @@ export default function IntelligenceMap({ isActive = true }: IntelligenceMapProp
                       eventHandlers={{
                         click: () => {
                           setSelectedRecommendation(rec.id);
+                          setShowRecommendations(true);
                           setSelectedLocalSignal(null);
                         },
                       }}
@@ -586,32 +625,38 @@ export default function IntelligenceMap({ isActive = true }: IntelligenceMapProp
           </div>
 
           {mapView === 'local' && (
-            <div className="absolute right-4 top-4 z-[1100] w-[23rem] max-w-[calc(100%-2rem)] pointer-events-auto space-y-3">
+            <motion.div 
+              drag
+              dragMomentum={false}
+              className="absolute left-4 top-4 z-[1100] w-[23rem] max-w-[calc(100%-2rem)] pointer-events-auto space-y-3"
+            >
               <div className="bg-[#111318]/95 border border-white/10 rounded-xl p-3 shadow-2xl backdrop-blur-md">
                 <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-[#00D1C1]" />
-                    <p className="text-[11px] font-bold uppercase tracking-wide text-[#00D1C1]">AI Expansion Scout</p>
-                  </div>
-                  <span className="text-[9px] text-gray-400">Onboarding + map coordinates</span>
+                   <div className="flex items-center gap-2">
+                     <Sparkles className="w-4 h-4 text-[#00D1C1]" />
+                     <p className="text-[11px] font-bold uppercase tracking-wide text-[#00D1C1]">AI Expansion Scout</p>
+                   </div>
+                   <div className="flex items-center gap-3 cursor-move">
+                     <span className="text-[9px] text-gray-400">Onboarding + map coordinates</span>
+                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2">
-                  <label className="text-[10px] text-gray-400">
+                  <label className="text-[10px] text-gray-300 font-semibold">
                     Business type
                     <input
                       value={onboarding.businessType}
                       onChange={(e) => setOnboarding((prev) => ({ ...prev, businessType: e.target.value }))}
-                      className="mt-1 w-full rounded border border-white/10 bg-white/5 px-2 py-1.5 text-[11px] text-gray-100"
+                      className="mt-1 w-full rounded border border-white/10 px-2 py-1.5 text-[11px] text-[#00D1C1] font-medium mm-input"
                     />
                   </label>
 
-                  <label className="text-[10px] text-gray-400">
+                  <label className="text-[10px] text-gray-300 font-semibold">
                     Expansion goal
                     <select
                       value={onboarding.expansionGoal}
                       onChange={(e) => setOnboarding((prev) => ({ ...prev, expansionGoal: e.target.value as ExpansionOnboarding['expansionGoal'] }))}
-                      className="mt-1 w-full rounded border border-white/10 bg-white/5 px-2 py-1.5 text-[11px] text-gray-100"
+                      className="mt-1 w-full rounded border border-white/10 px-2 py-1.5 text-[11px] text-[#00D1C1] font-medium mm-input"
                     >
                       <option value="kiosk">Kiosk</option>
                       <option value="full-branch">Full branch</option>
@@ -619,7 +664,7 @@ export default function IntelligenceMap({ isActive = true }: IntelligenceMapProp
                     </select>
                   </label>
 
-                  <label className="text-[10px] text-gray-400">
+                  <label className="text-[10px] text-gray-300 font-semibold">
                     Max rent (RM)
                     <input
                       type="number"
@@ -630,16 +675,16 @@ export default function IntelligenceMap({ isActive = true }: IntelligenceMapProp
                         const next = Number(e.target.value);
                         setOnboarding((prev) => ({ ...prev, monthlyRentBudget: Number.isFinite(next) ? next : prev.monthlyRentBudget }));
                       }}
-                      className="mt-1 w-full rounded border border-white/10 bg-white/5 px-2 py-1.5 text-[11px] text-gray-100"
+                      className="mt-1 w-full rounded border border-white/10 px-2 py-1.5 text-[11px] text-[#00D1C1] font-medium mm-input"
                     />
                   </label>
 
-                  <label className="text-[10px] text-gray-400">
+                  <label className="text-[10px] text-gray-300 font-semibold">
                     Foot traffic target
                     <select
                       value={onboarding.preferredFootTraffic}
                       onChange={(e) => setOnboarding((prev) => ({ ...prev, preferredFootTraffic: e.target.value as ExpansionOnboarding['preferredFootTraffic'] }))}
-                      className="mt-1 w-full rounded border border-white/10 bg-white/5 px-2 py-1.5 text-[11px] text-gray-100"
+                      className="mt-1 w-full rounded border border-white/10 px-2 py-1.5 text-[11px] text-[#00D1C1] font-medium mm-input"
                     >
                       <option value="medium">Medium</option>
                       <option value="high">High</option>
@@ -662,17 +707,25 @@ export default function IntelligenceMap({ isActive = true }: IntelligenceMapProp
                 </label>
               </div>
 
-              {featuredRecommendation && (
-                <div className="bg-[#111318]/95 border border-[#00D1C1]/25 rounded-xl p-3 shadow-2xl backdrop-blur-md">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <p className="text-[10px] font-bold uppercase tracking-wide text-[#00D1C1]">Top AI Recommendation</p>
-                      <p className="text-sm font-semibold text-white mt-1">{featuredRecommendation.name}</p>
-                    </div>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-[#00D1C1]/10 border border-[#00D1C1]/25 text-[#00D1C1]">
-                      SCORE {featuredRecommendation.overallScore}
-                    </span>
-                  </div>
+              {showRecommendations && featuredRecommendation && (
+                 <div className="bg-[#111318]/95 border border-[#00D1C1]/25 rounded-xl p-3 shadow-2xl backdrop-blur-md">
+                   <div className="flex items-start justify-between gap-2">
+                     <div>
+                       <p className="text-[10px] font-bold uppercase tracking-wide text-[#00D1C1]">Top AI Recommendation</p>
+                       <p className="text-sm font-semibold text-white mt-1">{featuredRecommendation.name}</p>
+                     </div>
+                     <div className="flex items-start gap-2">
+                       <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-[#00D1C1]/10 border border-[#00D1C1]/25 text-[#00D1C1]">
+                         SCORE {featuredRecommendation.overallScore}
+                       </span>
+                       <button 
+                         onClick={() => setShowRecommendations(false)}
+                         className="p-1 hover:bg-white/5 rounded-full transition-colors text-gray-500 hover:text-white"
+                       >
+                         <X className="w-3.5 h-3.5" />
+                       </button>
+                     </div>
+                   </div>
 
                   <p className="text-[12px] text-gray-300 mt-2 leading-relaxed">{featuredRecommendation.summary}</p>
                   <p className="text-[10px] text-gray-500 mt-2 leading-relaxed">{featuredRecommendation.rationale}</p>
@@ -714,7 +767,7 @@ export default function IntelligenceMap({ isActive = true }: IntelligenceMapProp
                   </div>
                 </div>
               )}
-            </div>
+            </motion.div>
           )}
 
           {/* Signal Detail Overlays — two-column layout, right = info+source, left = images */}
