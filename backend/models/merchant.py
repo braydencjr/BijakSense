@@ -1,7 +1,7 @@
 """
 BijakSense — Models for Merchant, Products, and Ingredients
 """
-from sqlalchemy import Column, String, Float, Integer, ForeignKey
+from sqlalchemy import Column, String, Float, Integer, ForeignKey, Date
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 import uuid
@@ -52,6 +52,7 @@ class InventoryItem(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     merchant_id = Column(UUID(as_uuid=True), ForeignKey("merchants.id"), nullable=False)
     item_name = Column(String(100), nullable=False)
+    item_code = Column(Integer, nullable=True) # Linked to DOSM reference table
     quantity = Column(Float, default=0.0)
     unit = Column(String(20), default="kg")
     reorder_threshold = Column(Float, default=10.0)
@@ -77,3 +78,31 @@ class PriceHistory(Base):
     timestamp = Column(String(50), nullable=False) # ISO date string
 
     inventory_item = relationship("InventoryItem", back_populates="price_history")
+
+class LookupItem(Base):
+    __tablename__ = "item"
+
+    item_code = Column(Integer, primary_key=True)
+    item = Column(String, nullable=False)
+    unit = Column(String)
+    item_group = Column(String)
+    item_category = Column(String)
+
+class LookupPremise(Base):
+    __tablename__ = "premise"
+
+    premise_code = Column(Integer, primary_key=True)
+    premise = Column(String, nullable=False)
+    address = Column(String)
+    premise_type = Column(String)
+    state = Column(String)
+    district = Column(String)
+
+class Price(Base):
+    __tablename__ = "price"
+
+    id = Column(Integer, primary_key=True)
+    item_code = Column(Integer)
+    premise_code = Column(Integer)
+    date = Column(Date)
+    price = Column(Float)
