@@ -1,13 +1,3 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
-
-# Run and deploy your AI Studio app
-
-This contains everything you need to run your app locally.
-
-View your app in AI Studio: https://ai.studio/apps/7b00d9a4-f961-4cf9-a666-ca001efbe4e9
-
 ## Run Locally
 
 **Prerequisites:**  Node.js
@@ -44,7 +34,6 @@ View your app in AI Studio: https://ai.studio/apps/7b00d9a4-f961-4cf9-a666-ca001
    ```bash
    pip install -r requirements.txt
    ```
-   *(Note: If using Python 3.13 on Windows, you may need to update version pins in requirements.txt if builds fail.)*
 
 4. Set environment variables:
    Create a `.env` file in the `backend/` directory based on `.env.example`.
