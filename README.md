@@ -11,7 +11,7 @@
 [![QAT](https://img.shields.io/badge/QAT-View-blue?style=for-the-badge)](https://drive.google.com/file/d/1NAcysdx1-dl-sQK7LTKLyGyeSz8rvXsp/view?usp=drive_link)
 [![Pitch Deck](https://img.shields.io/badge/Deck-Pitch%20Deck-blue?style=for-the-badge&logo=google-drive&logoColor=white)](https://drive.google.com/file/d/1xbPbcjsUXzCpw6NxDu2qwwevu573WnvS/view?usp=drive_link)
 
-### 🎬 Demo
+### 🎬 Pitching Video with Demonstration
 [![Pitch Video](https://img.shields.io/badge/Watch-Pitch%20Video-red?style=for-the-badge&logo=youtube)](https://drive.google.com/file/d/1ZRtkyHF9Ef4irv7egRQg48lpsv97p0mw/view?usp=sharing)
 ---
 
