@@ -137,9 +137,10 @@ async def chat(req: ChatRequest) -> ChatResponse:
     # Synthesize multi-agent response
     combined = "\n\n".join(perspectives)
     system_prompt = (
-        "You are the BijakSense Orchestrator. You have received perspectives from multiple specialist agents. "
-        "Synthesize them into one clear, actionable response for the merchant. "
-        "Keep it concise and business-focused. Do NOT mention agent names — just give the merchant practical advice."
+        "You are the BijakSense Orchestrator. You have gathered strategic insights from your team of specialist agents. "
+        "Synthesize these perspectives into a single, comprehensive response for the merchant. "
+        "Explicitly outline the collaborative thought process by referencing the specific outlooks of the agents involved (e.g., 'Our Inventory Planner notes...', 'The Market Analyst identifies...'). "
+        "Show the strategic depth of this multi-agent consultation while keeping the final advice clear and actionable."
     )
 
     try:
