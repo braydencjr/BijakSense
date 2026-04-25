@@ -101,24 +101,32 @@ function buildLocationRecommendations(
 ) {
   const opportunities = localSignals.filter((signal) => signal.type === 'opportunity');
   const competitors = localSignals.filter((signal) => signal.type === 'competitor');
-  const trafficWeight = onboarding.preferredFootTraffic === 'very-high' ? 1.15 : onboarding.preferredFootTraffic === 'high' ? 1.08 : 1;
+  const trafficWeight = onboarding.preferredFootTraffic === 'very-high' ? 1.2 : onboarding.preferredFootTraffic === 'high' ? 1.08 : 0.95;
+  const goalWeight = onboarding.expansionGoal === 'kiosk' ? 1.08 : onboarding.expansionGoal === 'cloud-kitchen' ? 0.92 : 1;
+  const rentPenaltyWeight = onboarding.expansionGoal === 'kiosk' ? 1.15 : onboarding.expansionGoal === 'cloud-kitchen' ? 0.8 : 1;
+  const businessTypeHint = onboarding.businessType.toLowerCase();
 
   return opportunities
     .map((opp): LocationRecommendation => {
       const distanceKm = haversineKm(merchantCoords, opp.coords);
       const nearbyCompetitors = competitors.filter((comp) => haversineKm(opp.coords, comp.coords) <= 1.2).length;
       const anchorBoost = /mrt|mall|hub|transit/i.test(opp.name) ? 10 : 0;
+      const categoryFit =
+        onboarding.expansionGoal === 'kiosk' && /retail|infrastructure/.test(opp.category.toLowerCase()) ? 8 :
+        onboarding.expansionGoal === 'cloud-kitchen' && /event/.test(opp.category.toLowerCase()) ? 6 :
+        3;
       const urgency = urgencyBoost(opp.urgency);
 
       const footTrafficScore = clamp(
-        (56 + urgency + anchorBoost + nearbyCompetitors * 3 + Math.max(0, 16 - distanceKm * 4)) * trafficWeight,
+        (54 + urgency + anchorBoost + categoryFit + nearbyCompetitors * 3 + Math.max(0, 16 - distanceKm * 4)) * trafficWeight * goalWeight,
         35,
         98
       );
 
-      const rentEstimateMyr = Math.round(2600 + footTrafficScore * 21 + nearbyCompetitors * 320);
+      const businessTypeRentFactor = /tea|coffee|drink/.test(businessTypeHint) ? 1.02 : 1.07;
+      const rentEstimateMyr = Math.round((2450 + footTrafficScore * 22 + nearbyCompetitors * 320) * businessTypeRentFactor);
       const rentOpportunityScore = clamp(
-        72 + (onboarding.monthlyRentBudget - rentEstimateMyr) / 90,
+        72 + (onboarding.monthlyRentBudget - rentEstimateMyr) / (90 / rentPenaltyWeight),
         18,
         96
       );
@@ -158,6 +166,99 @@ function buildLocationRecommendations(
     .filter((rec) => rec.distanceKm <= onboarding.maxDistanceKm)
     .sort((a, b) => b.overallScore - a.overallScore)
     .slice(0, 3);
+}
+
+function hashString(value: string) {
+  let hash = 0;
+  for (let i = 0; i < value.length; i += 1) {
+    hash = (hash << 5) - hash + value.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash);
+}
+
+function offsetCoords(
+  center: { lat: number; lng: number },
+  distanceKm: number,
+  angleDeg: number
+) {
+  const angle = (angleDeg * Math.PI) / 180;
+  const dLat = (distanceKm / 111) * Math.cos(angle);
+  const dLng = (distanceKm / (111 * Math.cos((center.lat * Math.PI) / 180))) * Math.sin(angle);
+  return { lat: center.lat + dLat, lng: center.lng + dLng };
+}
+
+function buildInteractiveLocalSignals(
+  baseSignals: LocalSignal[],
+  onboarding: ExpansionOnboarding,
+  merchantCoords: { lat: number; lng: number }
+) {
+  const withinRadius = baseSignals.filter((signal) => haversineKm(merchantCoords, signal.coords) <= onboarding.maxDistanceKm);
+  const baseCompetitors = withinRadius.filter((signal) => signal.type === 'competitor');
+  const baseOpportunities = withinRadius.filter((signal) => signal.type === 'opportunity');
+
+  const trafficFactor = onboarding.preferredFootTraffic === 'very-high' ? 1.35 : onboarding.preferredFootTraffic === 'high' ? 1.1 : 0.9;
+  const goalFactor = onboarding.expansionGoal === 'kiosk' ? 0.9 : onboarding.expansionGoal === 'cloud-kitchen' ? 1.15 : 1;
+  const budgetFactor = clamp(onboarding.monthlyRentBudget / 5500, 0.7, 1.35);
+  const density = trafficFactor * goalFactor * budgetFactor * (onboarding.maxDistanceKm / 5);
+
+  const targetCompetitors = Math.round(clamp(2 + density * 3.5, 2, 12));
+  const targetOpportunities = Math.round(clamp(1 + trafficFactor * 1.7 + goalFactor, 1, 8));
+
+  const scenarioSeed = hashString(
+    `${onboarding.businessType}|${onboarding.expansionGoal}|${onboarding.preferredFootTraffic}|${onboarding.monthlyRentBudget}|${onboarding.maxDistanceKm}`
+  );
+
+  const competitorTemplates = ['Transit Kiosk', 'Campus Tea Corner', 'Street Beverage Pod', 'Express Tea Spot'];
+  const opportunityTemplates = ['Co-working Cluster', 'LRT Feeder Stop', 'Night Market Strip', 'Office Lunch Belt'];
+
+  const competitors = [...baseCompetitors]
+    .sort((a, b) => haversineKm(merchantCoords, a.coords) - haversineKm(merchantCoords, b.coords))
+    .slice(0, targetCompetitors);
+
+  for (let i = competitors.length; i < targetCompetitors; i += 1) {
+    const ringDistance = clamp(0.9 + i * 0.45, 0.7, onboarding.maxDistanceKm * 0.95);
+    const angle = (scenarioSeed + i * 53) % 360;
+    const coords = offsetCoords(merchantCoords, ringDistance, angle);
+    competitors.push({
+      id: `sim-comp-${i}`,
+      name: `${competitorTemplates[i % competitorTemplates.length]} ${i + 1}`,
+      type: 'competitor',
+      category: onboarding.businessType || 'F&B',
+      distance: ringDistance,
+      coords,
+      description: 'Simulated nearby competitor based on current market density assumptions.',
+      urgency: i % 2 === 0 ? 'amber' : 'teal',
+    });
+  }
+
+  const opportunities = [...baseOpportunities]
+    .sort((a, b) => {
+      const scoreA = urgencyBoost(a.urgency) - haversineKm(merchantCoords, a.coords) * 3;
+      const scoreB = urgencyBoost(b.urgency) - haversineKm(merchantCoords, b.coords) * 3;
+      return scoreB - scoreA;
+    })
+    .slice(0, targetOpportunities);
+
+  for (let i = opportunities.length; i < targetOpportunities; i += 1) {
+    const ringDistance = clamp(0.8 + i * 0.55, 0.6, onboarding.maxDistanceKm * 0.92);
+    const angle = (scenarioSeed + 117 + i * 67) % 360;
+    const coords = offsetCoords(merchantCoords, ringDistance, angle);
+    opportunities.push({
+      id: `sim-opp-${i}`,
+      name: `${opportunityTemplates[i % opportunityTemplates.length]} ${i + 1}`,
+      type: 'opportunity',
+      category: onboarding.expansionGoal === 'kiosk' ? 'retail' : onboarding.expansionGoal === 'cloud-kitchen' ? 'delivery-zone' : 'infrastructure',
+      distance: ringDistance,
+      coords,
+      description: 'Simulated high-potential zone inferred from your onboarding preferences.',
+      urgency: i % 3 === 0 ? 'amber' : 'teal',
+    });
+  }
+
+  return [...competitors, ...opportunities].filter(
+    (signal) => haversineKm(merchantCoords, signal.coords) <= onboarding.maxDistanceKm
+  );
 }
 
 function MapAutoResize({ isActive }: { isActive: boolean }) {
@@ -332,15 +433,19 @@ export default function IntelligenceMap({ isActive = true }: IntelligenceMapProp
   const recommendationIcon = L.divIcon({ className: 'bg-transparent', html: `<div style="width:18px; height:18px; background:#f59e0b; border:2px solid #fff; border-radius:6px; transform: rotate(45deg); box-shadow:0 0 10px rgba(245,158,11,0.9);"></div>`, iconSize: [18, 18], iconAnchor: [9, 9] });
 
   const displayRadiusMeters = Math.round(onboarding.maxDistanceKm * 1000);
+  const interactiveLocalSignals = React.useMemo(
+    () => buildInteractiveLocalSignals(localSignals, onboarding, MERCHANT_INFO.coordinates),
+    [localSignals, onboarding]
+  );
   const displayedLocalSignals = React.useMemo(
-    () => localSignals.filter((signal) => haversineKm(MERCHANT_INFO.coordinates, signal.coords) <= onboarding.maxDistanceKm),
-    [localSignals, onboarding.maxDistanceKm]
+    () => interactiveLocalSignals.filter((signal) => haversineKm(MERCHANT_INFO.coordinates, signal.coords) <= onboarding.maxDistanceKm),
+    [interactiveLocalSignals, onboarding.maxDistanceKm]
   );
   const localHotspots = displayedLocalSignals.filter(s => s.type === 'competitor' || s.type === 'opportunity');
   const activeHotspot = localHotspots[hotspotIndex % Math.max(localHotspots.length, 1)];
   const locationRecommendations = React.useMemo(
-    () => buildLocationRecommendations(localSignals, onboarding, MERCHANT_INFO.coordinates),
-    [localSignals, onboarding]
+    () => buildLocationRecommendations(displayedLocalSignals, onboarding, MERCHANT_INFO.coordinates),
+    [displayedLocalSignals, onboarding]
   );
   const featuredRecommendation = locationRecommendations.find((rec) => rec.id === selectedRecommendation) || locationRecommendations[0] || null;
 
@@ -697,7 +802,7 @@ export default function IntelligenceMap({ isActive = true }: IntelligenceMapProp
             })()}
 
             {mapView === 'local' && selectedLocalSignal && (() => {
-              const s = localSignals.find(x => x.id === selectedLocalSignal);
+              const s = displayedLocalSignals.find(x => x.id === selectedLocalSignal);
               if (!s) return null;
               const media = SIGNAL_SUPPORTING_MEDIA[s.id] || [];
               return (
