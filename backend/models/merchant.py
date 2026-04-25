@@ -1,7 +1,7 @@
 """
 BijakSense — Models for Merchant, Products, and Ingredients
 """
-from sqlalchemy import Column, String, Float, Integer, ForeignKey
+from sqlalchemy import Column, String, Float, Integer, ForeignKey, Date
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 import uuid
@@ -104,5 +104,5 @@ class Price(Base):
     id = Column(Integer, primary_key=True)
     item_code = Column(Integer)
     premise_code = Column(Integer)
-    date = Column(String) # Date is stored as string in the dataset usually
+    date = Column(Date)
     price = Column(Float)

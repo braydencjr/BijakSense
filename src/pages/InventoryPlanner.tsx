@@ -70,6 +70,25 @@ export default function InventoryPlanner() {
   const [recs, setRecs] = useState<any[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [latestDate, setLatestDate] = useState<string>('Loading...');
+  
+  // AI Analysis State
+  const [analysisResult, setAnalysisResult] = useState<any>(null);
+  const [analysisLoading, setAnalysisLoading] = useState(false);
+
+  const fetchAIAnalysis = async () => {
+    try {
+      setAnalysisLoading(true);
+      const res = await fetch('http://localhost:8000/api/analysis/inventory');
+      if (res.ok) {
+        const data = await res.json();
+        setAnalysisResult(data);
+      }
+    } catch (err) {
+      console.error("Failed to run AI analysis:", err);
+    } finally {
+      setAnalysisLoading(false);
+    }
+  };
 
   const fetchLatestDate = async () => {
     try {
@@ -557,54 +576,138 @@ export default function InventoryPlanner() {
             className="rounded-2xl shadow-xl overflow-hidden flex flex-col"
             style={{ background: T.s1, border: `1px solid ${T.border}` }}
           >
-            <div className="px-6 py-5 border-b" style={{ borderColor: T.border }}>
-              <h2 className="font-semibold text-lg">AI Recommendations</h2>
+            <div className="px-6 py-5 border-b flex items-center justify-between" style={{ borderColor: T.border }}>
+              <div>
+                <h2 className="font-semibold text-lg">AI Analysis</h2>
+                <p className="text-[10px] uppercase tracking-widest mt-0.5" style={{ color: T.muted }}>ML Model + Weather + GLM Insights</p>
+              </div>
+              <button
+                onClick={fetchAIAnalysis}
+                disabled={analysisLoading}
+                className="flex items-center px-4 py-2 rounded-xl text-xs font-bold transition-all hover:scale-[1.02] active:scale-[0.98] border"
+                style={{ background: analysisLoading ? T.s2 : T.tealDim, borderColor: T.teal, color: T.teal }}
+              >
+                {analysisLoading ? <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" /> : <Sparkles className="w-3.5 h-3.5 mr-2" />}
+                {analysisLoading ? 'Analyzing...' : 'Run Analysis'}
+              </button>
             </div>
-            <div className="p-6 flex-1 overflow-y-auto max-h-[500px] scrollbar-hide">
-              <div className="relative border-l-2 ml-3 space-y-8" style={{ borderColor: T.borderMd }}>
-                {inventory.length === 0 ? (
-                  <div className="text-center py-12 px-6" style={{ color: T.muted }}>
-                    <Sparkles className="w-8 h-8 mx-auto mb-3 opacity-20" />
-                    <p className="text-sm">Add items to receive AI-powered restocking and sourcing optimization strategies.</p>
+            <div className="p-6 flex-1 overflow-y-auto max-h-[600px] scrollbar-hide space-y-5">
+              {/* Weather Context Bar */}
+              {analysisResult?.weather && (
+                <div className="flex items-center gap-4 p-3 rounded-xl text-xs" style={{ background: T.s2, border: `1px solid ${T.border}` }}>
+                  <div className="flex items-center gap-1.5" style={{ color: T.teal }}>
+                    <span className="text-base">🌡️</span>
+                    <span className="font-mono font-bold">{analysisResult.weather.temp_celsius}°C</span>
                   </div>
-                ) : recs.length === 0 && !loading ? (
-                  <div className="text-center py-12 px-6" style={{ color: T.muted }}>
-                    <Loader2 className="w-8 h-8 mx-auto mb-3 animate-spin opacity-20" />
-                    <p className="text-sm">Analyzing market trends and supplier data...</p>
+                  <div className="flex items-center gap-1.5" style={{ color: T.teal }}>
+                    <span className="text-base">🌧️</span>
+                    <span className="font-mono font-bold">{analysisResult.weather.precip_flux}mm</span>
                   </div>
-                ) : (
-                  recs.map((rec, idx) => {
-                    const isUrgent = rec.urgency === 'urgent';
+                  <span style={{ color: T.muted }} className="flex-1 text-right truncate">
+                    {analysisResult.weather_context || 'Petaling Jaya, Selangor'}
+                  </span>
+                </div>
+              )}
+
+              {/* Overall Summary */}
+              {analysisResult?.summary && (
+                <div className="p-4 rounded-xl text-sm leading-relaxed" style={{ background: T.base, border: `1px solid ${T.borderMd}`, color: T.secondary }}>
+                  <span className="font-bold mr-1" style={{ color: T.primary }}>MARKET SUMMARY:</span>
+                  {analysisResult.summary}
+                </div>
+              )}
+
+              {/* Insight Cards */}
+              {inventory.length === 0 ? (
+                <div className="text-center py-12 px-6" style={{ color: T.muted }}>
+                  <Sparkles className="w-8 h-8 mx-auto mb-3 opacity-20" />
+                  <p className="text-sm">Add items to receive ML-powered price predictions and AI sourcing strategies.</p>
+                </div>
+              ) : !analysisResult && !analysisLoading ? (
+                <div className="text-center py-12 px-6" style={{ color: T.muted }}>
+                  <Sparkles className="w-8 h-8 mx-auto mb-3 opacity-20" />
+                  <p className="text-sm">Press "Run Analysis" to generate ML price predictions and AI-powered insights for your inventory.</p>
+                </div>
+              ) : analysisLoading ? (
+                <div className="text-center py-12 px-6" style={{ color: T.muted }}>
+                  <Loader2 className="w-8 h-8 mx-auto mb-3 animate-spin opacity-40" />
+                  <p className="text-sm">Running Random Forest model and fetching weather data...</p>
+                  <p className="text-[10px] mt-1 uppercase tracking-widest">This may take a few seconds</p>
+                </div>
+              ) : (
+                <div className="relative border-l-2 ml-3 space-y-6" style={{ borderColor: T.borderMd }}>
+                  {(analysisResult?.insights || []).map((insight: any, idx: number) => {
+                    const isUrgent = insight.urgency === 'urgent';
+                    const isWatch = insight.urgency === 'watch';
+                    const dotColor = isUrgent ? T.ruby : isWatch ? T.amber : T.emerald;
+                    const riskColors: Record<string, string> = { high: T.ruby, medium: T.amber, low: T.emerald };
+                    const riskColor = riskColors[insight.risk_level] || T.teal;
+
                     return (
                       <div key={idx} className="relative pl-7">
-                        <div className={cn(
-                          "absolute w-3.5 h-3.5 rounded-full -left-[8px] top-1.5 shadow-lg",
-                          isUrgent ? "bg-red-500 shadow-red-500/40" : "bg-teal-500 shadow-teal-500/40"
-                        )} />
-                        <div className={cn(
-                          "text-[10px] font-black mb-2 uppercase tracking-[0.2em]",
-                          isUrgent ? "text-ruby" : "text-teal"
-                        )} style={{ color: isUrgent ? T.ruby : T.teal }}>
-                          {isUrgent ? "IMMEDIATE ACTION" : `WINDOW: ${rec.order_within_days || 3} DAYS`}
+                        <div className="absolute w-3.5 h-3.5 rounded-full -left-[8px] top-1.5 shadow-lg" style={{ background: dotColor, boxShadow: `0 0 8px ${dotColor}` }} />
+                        
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-[10px] font-black uppercase tracking-[0.2em]" style={{ color: dotColor }}>
+                            {isUrgent ? 'IMMEDIATE ACTION' : isWatch ? 'MONITORING' : 'OPPORTUNITY'}
+                          </span>
+                          <span className="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full" style={{ background: riskColors[insight.risk_level] + '22', color: riskColor }}>
+                            {insight.risk_level} risk
+                          </span>
                         </div>
-                        <div className="rounded-xl p-5 shadow-inner transition-transform hover:scale-[1.01]" style={{ background: T.s2, border: `1px solid ${isUrgent ? 'rgba(244,63,94,0.2)' : T.borderMd}` }}>
-                          <h3 className="font-bold mb-1.5 text-primary leading-tight">{rec.recommended_action || rec.headline}</h3>
-                          <p className="text-xs mb-4" style={{ color: T.secondary }}>
-                            Potential Cost Impact: <span className="font-mono font-bold" style={{ color: T.primary }}>RM {(rec.cost_now || 0).toFixed(2)}</span>
-                          </p>
+
+                        <div className="rounded-xl p-5 shadow-inner space-y-3" style={{ background: T.s2, border: `1px solid ${isUrgent ? 'rgba(244,63,94,0.2)' : T.borderMd}` }}>
+                          <h3 className="font-bold text-primary leading-tight">{insight.headline || insight.recommended_action}</h3>
+                          
+                          {/* Price Prediction Row */}
+                          <div className="flex items-center gap-4 text-xs">
+                            <div>
+                              <span style={{ color: T.muted }}>Current Avg: </span>
+                              <span className="font-mono font-bold" style={{ color: T.primary }}>RM {(insight.current_price || 0).toFixed(2)}</span>
+                            </div>
+                            <ArrowRight className="w-3 h-3" style={{ color: T.muted }} />
+                            <div>
+                              <span style={{ color: T.muted }}>Predicted: </span>
+                              <span className="font-mono font-bold" style={{ color: insight.price_direction === 'rising' ? T.ruby : insight.price_direction === 'falling' ? T.emerald : T.teal }}>
+                                RM {(insight.predicted_price || 0).toFixed(2)}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Cost Impact */}
+                          <div className="flex items-center gap-4 text-xs">
+                            <div>
+                              <span style={{ color: T.muted }}>Cost Now: </span>
+                              <span className="font-mono font-bold" style={{ color: T.emerald }}>RM {(insight.cost_now || 0).toFixed(2)}</span>
+                            </div>
+                            <div>
+                              <span style={{ color: T.muted }}>If Delayed: </span>
+                              <span className="font-mono font-bold" style={{ color: T.ruby }}>RM {(insight.cost_if_delayed || 0).toFixed(2)}</span>
+                            </div>
+                          </div>
+
+                          {/* Weather Impact */}
+                          {insight.weather_impact && (
+                            <div className="text-[11px] p-3 rounded-lg flex items-start" style={{ background: T.tealDim, color: T.secondary }}>
+                              <span className="mr-2 mt-0.5 shrink-0">🌤️</span>
+                              <span>{insight.weather_impact}</span>
+                            </div>
+                          )}
+
+                          {/* Reasoning */}
                           <div className="text-[11px] p-3 rounded-lg flex items-start leading-relaxed" style={{ background: isUrgent ? T.rubyDim : T.base, color: isUrgent ? T.primary : T.secondary }}>
                             <AlertTriangle className="w-3.5 h-3.5 mr-2 shrink-0 mt-0.5" style={{ color: isUrgent ? T.ruby : T.amber }} />
                             <div>
                               <span className="font-bold text-primary mr-1">RATIONALE:</span>
-                              {rec.reasoning}
+                              {insight.reasoning}
                             </div>
                           </div>
                         </div>
                       </div>
                     );
-                  })
-                )}
-              </div>
+                  })}
+                </div>
+              )}
             </div>
           </motion.section>
 
