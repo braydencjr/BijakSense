@@ -70,7 +70,7 @@ export default function InventoryPlanner() {
   const [recs, setRecs] = useState<any[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [latestDate, setLatestDate] = useState<string>('Loading...');
-  
+
   // AI Analysis State
   const [analysisResult, setAnalysisResult] = useState<any>(null);
   const [analysisLoading, setAnalysisLoading] = useState(false);
@@ -646,7 +646,7 @@ export default function InventoryPlanner() {
                     return (
                       <div key={idx} className="relative pl-7">
                         <div className="absolute w-3.5 h-3.5 rounded-full -left-[8px] top-1.5 shadow-lg" style={{ background: dotColor, boxShadow: `0 0 8px ${dotColor}` }} />
-                        
+
                         <div className="flex items-center gap-2 mb-2">
                           <span className="text-[10px] font-black uppercase tracking-[0.2em]" style={{ color: dotColor }}>
                             {isUrgent ? 'IMMEDIATE ACTION' : isWatch ? 'MONITORING' : 'OPPORTUNITY'}
@@ -658,7 +658,7 @@ export default function InventoryPlanner() {
 
                         <div className="rounded-xl p-5 shadow-inner space-y-3" style={{ background: T.s2, border: `1px solid ${isUrgent ? 'rgba(244,63,94,0.2)' : T.borderMd}` }}>
                           <h3 className="font-bold text-primary leading-tight">{insight.headline || insight.recommended_action}</h3>
-                          
+
                           {/* Price Prediction Row */}
                           <div className="flex items-center gap-4 text-xs">
                             <div>
@@ -1080,19 +1080,20 @@ export default function InventoryPlanner() {
       <footer className="max-w-7xl mx-auto px-8 py-12 border-t mt-12" style={{ borderColor: T.border }}>
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
           <div>
-            <p className="text-xs max-w-2xl leading-relaxed" style={{ color: T.secondary }}>
+            <p className="text-[10px] max-w-2xl leading-relaxed mt-4 opacity-50" style={{ color: T.secondary }}>
               Benchmark market prices and historical trends are powered by the <a href="https://open.dosm.gov.my/" target="_blank" rel="noopener noreferrer" className="font-bold text-primary hover:text-teal underline underline-offset-4 decoration-white/10 transition-colors">Department of Statistics Malaysia (DOSM)</a> Open Data initiative.
               Price data is sourced from the <a href="https://open.dosm.gov.my/data-catalogue/pricecatcher" target="_blank" rel="noopener noreferrer" className="font-bold text-primary hover:text-teal underline underline-offset-4 decoration-white/10 transition-colors">PriceCatcher</a> dataset.
               Usage is governed by the <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer" className="font-bold text-primary hover:text-teal underline underline-offset-4 decoration-white/10 transition-colors">Creative Commons Attribution 4.0 International License</a>.
+              Real-time weather analysis is powered by the <a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer" className="font-bold hover:text-teal underline underline-offset-4 transition-colors">Open-Meteo API</a>.
+              Our predictive models utilize modified Copernicus Climate Change Service information [2026] via the ECMWF/EU Agrometeorological indicators.
+              Data is provided "as is" without warranty; neither ECMWF nor the EU are liable for its use, accuracy, or any resulting damages.
+              This project is not sponsored, approved, or endorsed by ECMWF or the European Union.
             </p>
           </div>
           <div className="flex items-center space-x-6 shrink-0">
             <div className="text-right">
               <div className="text-[10px] font-black uppercase tracking-widest mb-1" style={{ color: T.muted }}>Last Updated</div>
               <div className="text-xs font-mono font-bold" style={{ color: T.teal }}>{latestDate}</div>
-            </div>
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-white/5 border border-white/10">
-              <Sparkles className="w-5 h-5" style={{ color: T.teal }} />
             </div>
           </div>
         </div>
