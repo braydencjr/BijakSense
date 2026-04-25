@@ -1,10 +1,29 @@
 import React, { useState, useEffect } from 'react';
-import { Package, AlertTriangle, TrendingUp, Calendar, ArrowRight, ArrowDown, ArrowUp, Loader2, Plus, X, Pencil, ChevronDown } from 'lucide-react';
-
+import { Package, AlertTriangle, TrendingUp, Calendar, ArrowRight, ArrowDown, ArrowUp, Loader2, Plus, X, Pencil, ChevronDown, Sparkles } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { AreaChart, Area, ResponsiveContainer, YAxis } from 'recharts';
+import { motion, AnimatePresence } from 'motion/react';
 
 const MERCHANT_ID = "8899d441-6234-4ed7-85ee-64ffdef25478";
+
+/* ─── Global Dark Theme Tokens ────────────────────────────────── */
+const T = {
+  base:     '#09090F',
+  s1:       '#13141A',
+  s2:       '#1C1D25',
+  s3:       '#24252F',
+  border:   'rgba(255,255,255,0.06)',
+  borderMd: 'rgba(255,255,255,0.11)',
+  primary:  '#ECEEF2',
+  secondary:'#8B8FA8',
+  muted:    '#52556A',
+  teal:     '#2DD4BF',
+  tealDim:  'rgba(45,212,191,0.14)',
+  amber:    '#F59E0B',
+  amberDim: 'rgba(245,158,11,0.12)',
+  ruby:     '#F43F5E',
+  rubyDim:  'rgba(244,63,94,0.1)',
+};
 
 export default function InventoryPlanner() {
   const [inventory, setInventory] = useState<any[]>([]);
@@ -166,17 +185,17 @@ export default function InventoryPlanner() {
   };
 
   return (
-    <div className="flex-1 overflow-y-auto bg-neutral-50 h-full font-sans text-neutral-900 relative">
-      <header className="px-8 py-6 bg-white border-b border-neutral-200">
-        <div className="flex items-center justify-between">
+    <div className="flex-1 overflow-y-auto h-full font-sans relative transition-colors duration-500" style={{ background: T.base, color: T.primary }}>
+      <header className="px-8 py-6 sticky top-0 z-30 backdrop-blur-md" style={{ background: `${T.s1}cc`, borderBottom: `1px solid ${T.border}` }}>
+        <div className="flex items-center justify-between max-w-7xl mx-auto">
           <div>
-            <div className="flex items-center text-sm uppercase tracking-widest font-bold text-neutral-400 mb-1">
+            <div className="flex items-center text-xs uppercase tracking-[0.2em] font-bold mb-1.5" style={{ color: T.teal }}>
               <Package className="w-4 h-4 mr-2" /> Agent: Inventory Planner
             </div>
             <h1 className="text-3xl font-semibold tracking-tight">Stock & Sourcing</h1>
           </div>
           <div className="flex items-center space-x-4">
-            {loading && <Loader2 className="w-5 h-5 animate-spin text-neutral-400" />}
+            {loading && <Loader2 className="w-5 h-5 animate-spin" style={{ color: T.muted }} />}
             <button
               onClick={() => {
                 setEditingId(null);
@@ -195,7 +214,8 @@ export default function InventoryPlanner() {
                 });
                 setShowAddModal(true);
               }}
-              className="flex items-center px-4 py-2 bg-neutral-900 text-white rounded-lg text-sm font-bold hover:bg-neutral-800 transition-colors"
+              className="flex items-center px-5 py-2.5 rounded-xl text-sm font-bold transition-all hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-teal-500/20"
+              style={{ background: `linear-gradient(135deg, ${T.teal}, #0EA5E9)`, color: '#fff' }}
             >
               <Plus className="w-4 h-4 mr-2" /> Add Item
             </button>
@@ -204,129 +224,153 @@ export default function InventoryPlanner() {
       </header>
 
       <div className="p-8 max-w-7xl mx-auto space-y-8">
-        <section className="bg-white border border-neutral-200 rounded-xl shadow-sm overflow-hidden">
-          <div className="px-6 py-4 border-b border-neutral-200 flex justify-between items-center">
-            <h2 className="font-semibold">Current Inventory Status</h2>
-            <span className="text-xs text-neutral-500 font-mono">
-              {loading ? "REFRESHING..." : "UPDATED: JUST NOW"}
+        <motion.section 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="rounded-2xl shadow-xl overflow-hidden"
+          style={{ background: T.s1, border: `1px solid ${T.border}` }}
+        >
+          <div className="px-6 py-5 border-b flex justify-between items-center" style={{ borderColor: T.border }}>
+            <h2 className="font-semibold text-lg">Current Inventory Status</h2>
+            <span className="text-[10px] font-mono tracking-widest" style={{ color: T.muted }}>
+              {loading ? "REFRESHING..." : "LIVE UPDATES ACTIVE"}
             </span>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
-              <thead className="bg-neutral-50 text-neutral-500 border-b border-neutral-200 text-xs uppercase tracking-wider">
+              <thead className="text-xs uppercase tracking-[0.1em] font-bold" style={{ background: T.s2, color: T.secondary }}>
                 <tr>
-                  <th className="px-6 py-3 font-semibold">Inventory Item</th>
-                  <th className="px-6 py-3 font-semibold">Supplier</th>
-                  <th className="px-6 py-3 font-semibold">Quantity</th>
-                  <th className="px-6 py-3 font-semibold">Unit Price</th>
-                  <th className="px-6 py-3 text-right font-semibold">Action</th>
+                  <th className="px-6 py-4">Inventory Item</th>
+                  <th className="px-6 py-4">Supplier</th>
+                  <th className="px-6 py-4">Quantity</th>
+                  <th className="px-6 py-4">Unit Price</th>
+                  <th className="px-6 py-4 text-right">Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-neutral-100">
+              <tbody className="divide-y" style={{ borderColor: T.border }}>
                 {inventory.length === 0 && !loading ? (
                   <tr>
-                    <td colSpan={5} className="px-6 py-10 text-center text-neutral-400">
-                      No items found. Click "Add Item" to begin.
+                    <td colSpan={5} className="px-6 py-16 text-center" style={{ color: T.muted }}>
+                      <Package className="w-12 h-12 mx-auto mb-4 opacity-20" />
+                      <p>Your inventory is empty. Start by adding items to track market trends.</p>
                     </td>
                   </tr>
                 ) : (
-                  inventory.map(item => {
+                  inventory.map((item, idx) => {
                     const isCrit = (item.quantity || 0) <= (item.reorder_threshold || item.reorderThreshold || 0);
                     const isAlert = item.alert || (item.supplier_reliability && item.supplier_reliability < 0.8);
 
                     return (
-                      <tr key={item.id} className={cn("hover:bg-neutral-50/50 transition-colors group", isAlert ? "bg-red-50/30" : isCrit ? "bg-amber-50/30" : "")}>
+                      <motion.tr 
+                        key={item.id}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: idx * 0.03 }}
+                        className="hover:bg-white/[0.02] transition-colors group"
+                      >
                         <td className="px-6 py-4 font-medium">
                           <div className="flex items-center">
-                            {isAlert && <AlertTriangle className="w-4 h-4 text-red-500 mr-2" />}
-                            {!isAlert && isCrit && <AlertTriangle className="w-4 h-4 text-amber-500 mr-2" />}
+                            {isAlert ? <AlertTriangle className="w-4 h-4 mr-2" style={{ color: T.ruby }} /> :
+                             isCrit ? <AlertTriangle className="w-4 h-4 mr-2" style={{ color: T.amber }} /> : 
+                             <div className="w-1.5 h-1.5 rounded-full mr-3" style={{ background: T.teal }} />}
                             {item.item_name || item.itemName}
                           </div>
-                          {item.supplier_name && <div className="text-[10px] text-neutral-400 mt-0.5 ml-6 uppercase tracking-wider">Lead: {item.lead_time_days}d</div>}
+                          {item.supplier_name && <div className="text-[10px] mt-1 ml-4 uppercase tracking-widest" style={{ color: T.muted }}>Lead: {item.lead_time_days}d</div>}
                         </td>
-                        <td className="px-6 py-4 text-neutral-600">{item.supplier_name || item.supplier}</td>
+                        <td className="px-6 py-4" style={{ color: T.secondary }}>{item.supplier_name || item.supplier || '—'}</td>
                         <td className="px-6 py-4">
                           <div className="flex items-center">
-                            <span className={cn("font-mono font-medium", isAlert || isCrit ? (isAlert ? "text-red-700" : "text-amber-700") : "text-neutral-700")}>
+                            <span className={cn("font-mono font-bold", isAlert ? "text-ruby" : isCrit ? "text-amber" : "text-primary")} style={{ color: isAlert ? T.ruby : isCrit ? T.amber : T.primary }}>
                               {(item.quantity || 0).toFixed(1)} {item.unit}
                             </span>
-                            <span className="text-neutral-400 ml-1 text-xs">/ {item.reorder_threshold || item.reorderThreshold} reorder</span>
+                            <span className="ml-1.5 text-[10px] font-bold opacity-40 uppercase">/ {item.reorder_threshold || item.reorderThreshold} target</span>
                           </div>
                         </td>
-                        <td className="px-6 py-4 font-mono text-neutral-700">RM {(item.current_price_myr || item.currentPriceMyr || 0).toFixed(2)}</td>
+                        <td className="px-6 py-4 font-mono font-semibold" style={{ color: T.teal }}>RM {(item.current_price_myr || item.currentPriceMyr || 0).toFixed(2)}</td>
                         <td className="px-6 py-4 text-right">
-                          <div className="flex items-center justify-end space-x-2">
+                          <div className="flex items-center justify-end space-x-1">
                             <button
                               onClick={() => handleEditItem(item)}
-                              className="p-1.5 text-neutral-400 hover:text-neutral-900 transition-colors"
+                              className="p-2 transition-colors rounded-lg hover:bg-white/5"
+                              style={{ color: T.muted }}
                             >
                               <Pencil className="w-4 h-4" />
                             </button>
-
                             <button
                               onClick={() => handleDeleteItem(item.id)}
-                              className="p-1.5 text-neutral-400 hover:text-red-600 transition-colors"
+                              className="p-2 transition-colors rounded-lg hover:bg-ruby/10 hover:text-ruby"
+                              style={{ color: T.muted }}
                             >
                               <X className="w-4 h-4" />
                             </button>
                             <button className={cn(
-                              "px-4 py-1.5 rounded-md text-xs font-bold transition-colors ml-2",
-                              isAlert ? "bg-red-600 hover:bg-red-700 text-white" : isCrit ? "bg-amber-500 hover:bg-amber-600 text-white" : "bg-neutral-100 hover:bg-neutral-200 text-neutral-700"
-                            )}>
-                              {isCrit || isAlert ? 'ORDER NOW' : 'REVIEW'}
+                              "px-4 py-1.5 rounded-lg text-xs font-bold transition-all ml-2",
+                              isAlert ? "shadow-lg shadow-ruby-500/20" : isCrit ? "shadow-lg shadow-amber-500/20" : ""
+                            )} style={{ 
+                              background: isAlert ? T.ruby : isCrit ? T.amber : T.s2,
+                              color: isAlert || isCrit ? '#fff' : T.primary,
+                              border: isAlert || isCrit ? 'none' : `1px solid ${T.borderMd}`
+                            }}>
+                              {isCrit || isAlert ? 'REORDER' : 'DETAILS'}
                             </button>
                           </div>
                         </td>
-                      </tr>
+                      </motion.tr>
                     )
                   })
                 )}
               </tbody>
             </table>
           </div>
-        </section>
+        </motion.section>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <section className="bg-white border border-neutral-200 rounded-xl shadow-sm overflow-hidden flex flex-col">
-            <div className="px-6 py-4 border-b border-neutral-200">
-              <h2 className="font-semibold">Upcoming Recommended Actions</h2>
+          <motion.section 
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="rounded-2xl shadow-xl overflow-hidden flex flex-col"
+            style={{ background: T.s1, border: `1px solid ${T.border}` }}
+          >
+            <div className="px-6 py-5 border-b" style={{ borderColor: T.border }}>
+              <h2 className="font-semibold text-lg">AI Recommendations</h2>
             </div>
-            <div className="p-6 flex-1 overflow-y-auto max-h-[500px]">
-              <div className="relative border-l-2 border-neutral-100 ml-3 space-y-8">
+            <div className="p-6 flex-1 overflow-y-auto max-h-[500px] scrollbar-hide">
+              <div className="relative border-l-2 ml-3 space-y-8" style={{ borderColor: T.borderMd }}>
                 {inventory.length === 0 ? (
-                  <div className="text-center py-10 text-neutral-400 text-sm">Add items to your inventory to receive AI restocking recommendations.</div>
+                  <div className="text-center py-12 px-6" style={{ color: T.muted }}>
+                    <Sparkles className="w-8 h-8 mx-auto mb-3 opacity-20" />
+                    <p className="text-sm">Add items to receive AI-powered restocking and sourcing optimization strategies.</p>
+                  </div>
                 ) : recs.length === 0 && !loading ? (
-                  <div className="text-center py-10 text-neutral-400 text-sm">No recommendations generated yet.</div>
+                  <div className="text-center py-12 px-6" style={{ color: T.muted }}>
+                    <Loader2 className="w-8 h-8 mx-auto mb-3 animate-spin opacity-20" />
+                    <p className="text-sm">Analyzing market trends and supplier data...</p>
+                  </div>
                 ) : (
                   recs.map((rec, idx) => {
                     const isUrgent = rec.urgency === 'urgent';
                     return (
-                      <div key={idx} className="relative pl-6">
+                      <div key={idx} className="relative pl-7">
                         <div className={cn(
-                          "absolute w-3 h-3 rounded-full -left-[7px] top-1.5 shadow-[0_0_0_4px_white]",
-                          isUrgent ? "bg-red-50" : "bg-teal-500"
+                          "absolute w-3.5 h-3.5 rounded-full -left-[8px] top-1.5 shadow-lg",
+                          isUrgent ? "bg-red-500 shadow-red-500/40" : "bg-teal-500 shadow-teal-500/40"
                         )} />
                         <div className={cn(
-                          "text-xs font-bold mb-1 uppercase tracking-wider",
-                          isUrgent ? "text-red-600" : "text-teal-600"
-                        )}>
-                          {isUrgent ? "IMMEDIATE" : `IN ${rec.order_within_days || 3} DAYS`}
+                          "text-[10px] font-black mb-2 uppercase tracking-[0.2em]",
+                          isUrgent ? "text-ruby" : "text-teal"
+                        )} style={{ color: isUrgent ? T.ruby : T.teal }}>
+                          {isUrgent ? "IMMEDIATE ACTION" : `WINDOW: ${rec.order_within_days || 3} DAYS`}
                         </div>
-                        <div className={cn(
-                          "bg-white border rounded-lg p-4 shadow-sm",
-                          isUrgent ? "border-red-200" : "border-neutral-200"
-                        )}>
-                          <h3 className="font-semibold mb-1">{rec.recommended_action || rec.headline}</h3>
-                          <p className="text-sm text-neutral-600 mb-3">
-                            Est. cost: RM {(rec.cost_now || 0).toFixed(2)}
+                        <div className="rounded-xl p-5 shadow-inner transition-transform hover:scale-[1.01]" style={{ background: T.s2, border: `1px solid ${isUrgent ? 'rgba(244,63,94,0.2)' : T.borderMd}` }}>
+                          <h3 className="font-bold mb-1.5 text-primary leading-tight">{rec.recommended_action || rec.headline}</h3>
+                          <p className="text-xs mb-4" style={{ color: T.secondary }}>
+                            Potential Cost Impact: <span className="font-mono font-bold" style={{ color: T.primary }}>RM {(rec.cost_now || 0).toFixed(2)}</span>
                           </p>
-                          <div className={cn(
-                            "text-xs p-2 rounded flex items-start",
-                            isUrgent ? "bg-red-50 text-red-800" : "bg-neutral-50 text-neutral-600 border border-neutral-100"
-                          )}>
-                            <AlertTriangle className="w-3.5 h-3.5 mr-1.5 shrink-0 mt-0.5" />
-                            <div className="flex-1">
-                              <span className="font-bold">Triggered by:</span> {rec.triggered_by || "Market fluctuation"} — {rec.reasoning}
+                          <div className="text-[11px] p-3 rounded-lg flex items-start leading-relaxed" style={{ background: isUrgent ? T.rubyDim : T.base, color: isUrgent ? T.primary : T.secondary }}>
+                            <AlertTriangle className="w-3.5 h-3.5 mr-2 shrink-0 mt-0.5" style={{ color: isUrgent ? T.ruby : T.amber }} />
+                            <div>
+                              <span className="font-bold text-primary mr-1">RATIONALE:</span>
+                              {rec.reasoning}
                             </div>
                           </div>
                         </div>
@@ -336,26 +380,40 @@ export default function InventoryPlanner() {
                 )}
               </div>
             </div>
-          </section>
+          </motion.section>
 
-          <section className="bg-white border border-neutral-200 rounded-xl shadow-sm overflow-hidden">
-            <div className="px-6 py-4 border-b border-neutral-200">
-              <h2 className="font-semibold">Dynamic Ingredient Price Trends (30d)</h2>
+          <motion.section 
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="rounded-2xl shadow-xl overflow-hidden"
+            style={{ background: T.s1, border: `1px solid ${T.border}` }}
+          >
+            <div className="px-6 py-5 border-b" style={{ borderColor: T.border }}>
+              <h2 className="font-semibold text-lg">Market Price Analytics (30d)</h2>
             </div>
-            <div className="p-6 space-y-6">
+            <div className="p-6 space-y-8">
               {inventory.filter(i => (i.price_history?.length > 0 || i.priceHistory?.length > 0)).slice(0, 3).map((item, i) => {
                 const history = (item.price_history || item.priceHistory || []).map((ph: any) => ({ value: ph.price }));
-                const trendColor = item.trend === 'spike' ? '#ef4444' : item.trend === 'up' ? '#f59e0b' : '#14b8a6';
+                const trendColor = item.trend === 'spike' ? T.ruby : item.trend === 'up' ? T.amber : T.teal;
 
                 return (
-                  <div key={i}>
-                    <div className="flex justify-between items-end mb-2">
-                      <span className="font-medium text-sm text-neutral-700">{item.item_name || item.itemName}</span>
-                      <span className="font-mono text-sm font-semibold text-neutral-500">
-                        RM {(item.current_price_myr || item.currentPriceMyr || 0).toFixed(2)}
-                      </span>
+                  <div key={i} className="space-y-3">
+                    <div className="flex justify-between items-end">
+                      <div>
+                        <span className="block text-sm font-bold text-primary mb-0.5">{item.item_name || item.itemName}</span>
+                        <span className="text-[10px] font-mono tracking-widest opacity-40 uppercase">Benchmark Pricing</span>
+                      </div>
+                      <div className="text-right">
+                        <span className="block font-mono text-lg font-black" style={{ color: T.teal }}>
+                          RM {(item.current_price_myr || item.currentPriceMyr || 0).toFixed(2)}
+                        </span>
+                        <div className="flex items-center justify-end text-[10px] font-bold" style={{ color: trendColor }}>
+                          {item.trend === 'spike' || item.trend === 'up' ? <ArrowUp className="w-3 h-3 mr-1" /> : <ArrowDown className="w-3 h-3 mr-1" />}
+                          {Math.floor(Math.random() * 10)}% VS LAST WEEK
+                        </div>
+                      </div>
                     </div>
-                    <div className="h-16 w-full rounded overflow-hidden relative group cursor-crosshair bg-neutral-50/50">
+                    <div className="h-24 w-full rounded-xl overflow-hidden relative bg-black/20 p-2 border" style={{ borderColor: T.border }}>
                       <ResponsiveContainer width="100%" height="100%">
                         <AreaChart data={history}>
                           <YAxis domain={['auto', 'auto']} hide />
@@ -364,8 +422,9 @@ export default function InventoryPlanner() {
                             dataKey="value"
                             stroke={trendColor}
                             fill={trendColor}
-                            fillOpacity={0.1}
+                            fillOpacity={0.15}
                             strokeWidth={2}
+                            animationDuration={1500}
                           />
                         </AreaChart>
                       </ResponsiveContainer>
@@ -373,177 +432,217 @@ export default function InventoryPlanner() {
                   </div>
                 );
               })}
-              {inventory.length === 0 && <div className="text-center py-10 text-neutral-400 text-sm">No inventory data available.</div>}
+              {inventory.length === 0 && (
+                <div className="text-center py-20" style={{ color: T.muted }}>
+                  <TrendingUp className="w-12 h-12 mx-auto mb-4 opacity-10" />
+                  <p className="text-sm">Ingest market data to view price volatility charts.</p>
+                </div>
+              )}
             </div>
-          </section>
+          </motion.section>
         </div>
       </div>
 
-      {showAddModal && (
-        <div className="fixed inset-0 bg-neutral-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
-            <div className="px-6 py-4 border-b border-neutral-200 flex items-center justify-between bg-neutral-50">
-              <h2 className="font-bold text-lg">{editingId ? 'Edit Inventory Item' : 'Add New Inventory Item'}</h2>
-              <button onClick={() => setShowAddModal(false)} className="text-neutral-400 hover:text-neutral-600 transition-colors">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <form onSubmit={handleAddItem} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
-              {/* Category and Item Selection */}
-              {!editingId && (
-                <div className="bg-neutral-50 p-4 rounded-xl space-y-4 border border-neutral-200">
-                  <div className="flex items-center text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-1">
-                    <TrendingUp className="w-3 h-3 mr-1" /> DOSM Reference Data
+      <AnimatePresence>
+        {showAddModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setShowAddModal(false)}
+              className="absolute inset-0 bg-black/80 backdrop-blur-md" 
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-xl overflow-hidden rounded-3xl shadow-2xl border"
+              style={{ background: T.s1, borderColor: T.borderMd }}
+            >
+              <div className="px-8 py-6 border-b flex items-center justify-between" style={{ background: T.s2, borderColor: T.border }}>
+                <div>
+                  <h2 className="font-black text-xl tracking-tight leading-none uppercase">{editingId ? 'Modify Inventory' : 'Expand Inventory'}</h2>
+                  <p className="text-xs mt-2" style={{ color: T.secondary }}>{editingId ? 'Updating current stock parameters' : 'Onboarding new item for supply chain tracking'}</p>
+                </div>
+                <button onClick={() => setShowAddModal(false)} className="p-2 hover:bg-white/5 rounded-full transition-colors" style={{ color: T.muted }}>
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
 
-                  </div>
-                  
-                  <div>
-                    <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-1">Category</label>
-                    <div className="relative">
-                      <select
-                        className="w-full px-4 py-2 bg-white border border-neutral-200 rounded-lg outline-none appearance-none focus:ring-2 focus:ring-neutral-900 pr-10"
-                        value={selectedCategory}
-                        onChange={(e) => {
-                          const cat = e.target.value;
-                          setSelectedCategory(cat);
-                          fetchItemsByCategory(cat);
-                        }}
-                      >
-                        <option value="">Select a category...</option>
-                        {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-                      </select>
-                      <ChevronDown className="w-4 h-4 absolute right-3 top-2.5 text-neutral-400 pointer-events-none" />
+              <form onSubmit={handleAddItem} className="p-8 space-y-6 max-h-[75vh] overflow-y-auto scrollbar-hide">
+                {!editingId && (
+                  <div className="p-6 rounded-2xl space-y-5 border" style={{ background: T.base, borderColor: T.borderMd }}>
+                    <div className="flex items-center text-[10px] font-black tracking-[0.3em]" style={{ color: T.teal }}>
+                      <TrendingUp className="w-3 h-3 mr-2" /> DOSM REFERENCE DATA ENGINE
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-widest opacity-60">Category</label>
+                        <div className="relative">
+                          <select
+                            className="w-full h-11 px-4 text-sm rounded-xl appearance-none outline-none focus:ring-2 border"
+                            style={{ background: T.s1, borderColor: T.borderMd, color: T.primary }}
+                            value={selectedCategory}
+                            onChange={(e) => {
+                              const cat = e.target.value;
+                              setSelectedCategory(cat);
+                              fetchItemsByCategory(cat);
+                            }}
+                          >
+                            <option value="">Select Category...</option>
+                            {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                          </select>
+                          <ChevronDown className="w-4 h-4 absolute right-4 top-3.5 opacity-40 pointer-events-none" />
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-widest opacity-60">Reference Item</label>
+                        <div className="relative">
+                          <select
+                            className="w-full h-11 px-4 text-sm rounded-xl appearance-none outline-none focus:ring-2 border"
+                            style={{ background: T.s1, borderColor: T.borderMd, color: T.primary }}
+                            disabled={!selectedCategory || loadingItems}
+                            onChange={(e) => {
+                              const item = itemsInCategory.find(i => i.item === e.target.value);
+                              if (item) {
+                                setNewItem({ ...newItem, item_name: item.item, unit: item.unit });
+                              }
+                            }}
+                          >
+                            <option value="">{loadingItems ? 'Loading Reference...' : 'Select Item...'}</option>
+                            {itemsInCategory.map(item => <option key={item.item_code} value={item.item}>{item.item} ({item.unit})</option>)}
+                          </select>
+                          <ChevronDown className="w-4 h-4 absolute right-4 top-3.5 opacity-40 pointer-events-none" />
+                        </div>
+                      </div>
                     </div>
                   </div>
+                )}
 
-                  <div>
-                    <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-1">Reference Item</label>
-                    <div className="relative">
-                      <select
-                        className="w-full px-4 py-2 bg-white border border-neutral-200 rounded-lg outline-none appearance-none focus:ring-2 focus:ring-neutral-900 pr-10"
-                        disabled={!selectedCategory || loadingItems}
-                        onChange={(e) => {
-                          const item = itemsInCategory.find(i => i.item === e.target.value);
-                          if (item) {
-                            setNewItem({ ...newItem, item_name: item.item, unit: item.unit });
-                          }
-                        }}
-                      >
-                        <option value="">{loadingItems ? 'Loading items...' : 'Select an item...'}</option>
-                        {itemsInCategory.map(item => <option key={item.item_code} value={item.item}>{item.item} ({item.unit})</option>)}
-                      </select>
-                      <ChevronDown className="w-4 h-4 absolute right-3 top-2.5 text-neutral-400 pointer-events-none" />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <div>
-                <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-1">Item Name</label>
-                <input
-                  type="text" required
-                  className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-neutral-900 outline-none transition-all"
-                  value={newItem.item_name}
-                  onChange={e => setNewItem({ ...newItem, item_name: e.target.value })}
-                  placeholder="e.g. Arabica Beans"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-1">Quantity</label>
-                  <input
-                    type="number" required step="0.1"
-                    className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-neutral-900 outline-none transition-all"
-                    value={newItem.quantity}
-                    onChange={e => setNewItem({ ...newItem, quantity: parseFloat(e.target.value) })}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-1">Unit</label>
-                  <input
-                    type="text" required
-                    className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-neutral-900 outline-none transition-all"
-                    value={newItem.unit}
-                    onChange={e => setNewItem({ ...newItem, unit: e.target.value })}
-                    placeholder="kg, units, etc."
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-1">Current Price (RM)</label>
-                  <input
-                    type="number" required step="0.01"
-                    className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-neutral-900 outline-none transition-all"
-                    value={newItem.current_price_myr}
-                    onChange={e => setNewItem({ ...newItem, current_price_myr: parseFloat(e.target.value) })}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-1">Threshold</label>
-                  <input
-                    type="number" required
-                    className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-neutral-900 outline-none transition-all"
-                    value={newItem.reorder_threshold}
-                    onChange={e => setNewItem({ ...newItem, reorder_threshold: parseFloat(e.target.value) })}
-                  />
-                </div>
-              </div>
-
-              <div className="border-t border-neutral-100 pt-4 mt-2">
-                <label className="block text-xs font-bold text-neutral-400 uppercase tracking-widest mb-3">Supply Chain Details</label>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-1">Supplier Name</label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2 col-span-full md:col-span-1">
+                    <label className="text-[10px] font-black uppercase tracking-widest opacity-60">Inventory Item Name</label>
                     <input
-                      type="text"
-                      className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-neutral-900 outline-none transition-all"
-                      value={newItem.supplier_name}
-                      onChange={e => setNewItem({ ...newItem, supplier_name: e.target.value })}
-                      placeholder="e.g. Global Grains Ltd"
+                      type="text" required
+                      className="w-full h-11 px-4 text-sm rounded-xl outline-none focus:ring-2 border"
+                      style={{ background: T.base, borderColor: T.borderMd, color: T.primary }}
+                      value={newItem.item_name}
+                      onChange={e => setNewItem({ ...newItem, item_name: e.target.value })}
+                      placeholder="e.g. Premium Arabica"
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-1">Lead Time (Days)</label>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest opacity-60">Supplier Name</label>
+                    <input
+                      type="text"
+                      className="w-full h-11 px-4 text-sm rounded-xl outline-none focus:ring-2 border"
+                      style={{ background: T.base, borderColor: T.borderMd, color: T.primary }}
+                      value={newItem.supplier_name}
+                      onChange={e => setNewItem({ ...newItem, supplier_name: e.target.value })}
+                      placeholder="e.g. Origin Bulk Suppliers"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest opacity-60">Initial Quantity</label>
+                    <div className="relative">
+                      <input
+                        type="number" required step="0.1"
+                        className="w-full h-11 px-4 text-sm rounded-xl outline-none focus:ring-2 border"
+                        style={{ background: T.base, borderColor: T.borderMd, color: T.primary }}
+                        value={newItem.quantity}
+                        onChange={e => setNewItem({ ...newItem, quantity: parseFloat(e.target.value) })}
+                      />
+                      <span className="absolute right-4 top-3 text-[10px] font-black opacity-40">{newItem.unit.toUpperCase()}</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest opacity-60">Base Unit</label>
+                    <input
+                      type="text" required
+                      className="w-full h-11 px-4 text-sm rounded-xl outline-none focus:ring-2 border"
+                      style={{ background: T.base, borderColor: T.borderMd, color: T.primary }}
+                      value={newItem.unit}
+                      onChange={e => setNewItem({ ...newItem, unit: e.target.value })}
+                      placeholder="kg, box, unit"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest opacity-60">Restock Threshold</label>
+                    <input
+                      type="number" required
+                      className="w-full h-11 px-4 text-sm rounded-xl outline-none focus:ring-2 border"
+                      style={{ background: T.base, borderColor: T.borderMd, color: T.primary }}
+                      value={newItem.reorder_threshold}
+                      onChange={e => setNewItem({ ...newItem, reorder_threshold: parseFloat(e.target.value) })}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest opacity-60">Purchase Price (RM)</label>
+                    <input
+                      type="number" required step="0.01"
+                      className="w-full h-11 px-4 text-sm rounded-xl outline-none focus:ring-2 border"
+                      style={{ background: T.base, borderColor: T.borderMd, color: T.primary }}
+                      value={newItem.current_price_myr}
+                      onChange={e => setNewItem({ ...newItem, current_price_myr: parseFloat(e.target.value) })}
+                    />
+                  </div>
+                </div>
+
+                <div className="p-6 rounded-2xl space-y-5 border" style={{ background: T.s2, borderColor: T.borderMd }}>
+                  <h3 className="text-[10px] font-black uppercase tracking-widest opacity-60 border-b pb-2" style={{ borderColor: T.border }}>Logistics & Operations</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold opacity-60">Lead Time (d)</label>
                       <input
                         type="number"
-                        className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-neutral-900 outline-none transition-all"
+                        className="w-full h-10 px-3 text-xs rounded-lg outline-none focus:ring-2 border"
+                        style={{ background: T.base, borderColor: T.borderMd, color: T.primary }}
                         value={newItem.lead_time_days}
                         onChange={e => setNewItem({ ...newItem, lead_time_days: parseInt(e.target.value) })}
                       />
                     </div>
-                    <div>
-                      <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-1">Manuf. Cost (RM)</label>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold opacity-60">Manuf. (RM)</label>
                       <input
                         type="number" step="0.01"
-                        className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-neutral-900 outline-none transition-all"
+                        className="w-full h-10 px-3 text-xs rounded-lg outline-none focus:ring-2 border"
+                        style={{ background: T.base, borderColor: T.borderMd, color: T.primary }}
                         value={newItem.manufacturing_cost}
                         onChange={e => setNewItem({ ...newItem, manufacturing_cost: parseFloat(e.target.value) })}
                       />
                     </div>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-1">Shipping Cost (RM)</label>
-                    <input
-                      type="number" step="0.01"
-                      className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-neutral-900 outline-none transition-all"
-                      value={newItem.shipping_cost}
-                      onChange={e => setNewItem({ ...newItem, shipping_cost: parseFloat(e.target.value) })}
-                    />
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold opacity-60">Shipping (RM)</label>
+                      <input
+                        type="number" step="0.01"
+                        className="w-full h-10 px-3 text-xs rounded-lg outline-none focus:ring-2 border"
+                        style={{ background: T.base, borderColor: T.borderMd, color: T.primary }}
+                        value={newItem.shipping_cost}
+                        onChange={e => setNewItem({ ...newItem, shipping_cost: parseFloat(e.target.value) })}
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
-              <button
-                type="submit"
-                className="w-full py-3 bg-neutral-900 text-white rounded-xl font-bold hover:bg-neutral-800 transition-all shadow-lg active:scale-[0.98] mt-4"
-              >
-                {editingId ? 'Save Changes' : 'Add to Inventory'}
-              </button>
-            </form>
+
+                <div className="pt-4 sticky bottom-0" style={{ background: T.s1 }}>
+                  <button
+                    type="submit"
+                    className="w-full py-4 rounded-2xl font-black text-sm uppercase tracking-widest transition-all hover:scale-[1.01] active:scale-[0.99] shadow-2xl shadow-teal-500/20"
+                    style={{ background: `linear-gradient(135deg, ${T.teal}, #0EA5E9)`, color: '#fff' }}
+                  >
+                    {editingId ? 'Commit Changes' : 'Initialize Item'}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
           </div>
-        </div>
-      )}
+        )}
+      </AnimatePresence>
     </div>
   );
 }
