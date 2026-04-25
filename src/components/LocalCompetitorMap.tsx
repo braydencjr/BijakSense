@@ -1,7 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { MERCHANT_INFO, LOCAL_COMPETITORS } from '../data/mock';
+import { MERCHANT_INFO } from '../data/mock';
+
+// Local competitor data is now served from backend API
+const LOCAL_COMPETITORS: any[] = [];
 
 const CompetitorIcon = () => (
   <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor">

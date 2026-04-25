@@ -1,5 +1,5 @@
 """
-MerchantMind — Models for Recommendations
+BijakSense — Models for Recommendations
 """
 from sqlalchemy import Column, String, DateTime, JSON, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID

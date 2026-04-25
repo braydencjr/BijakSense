@@ -1,5 +1,5 @@
 """
-MerchantMind — MCP Tool Server Placeholder
+BijakSense — MCP Tool Server Placeholder
 
 Exposes each specialist agent as a tool that the orchestrator or GLM can call.
 """

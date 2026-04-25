@@ -1,5 +1,5 @@
 """
-MerchantMind Backend — FastAPI application entry point.
+BijakSense Backend — FastAPI application entry point.
 
 Routers:
   - /api/merchant        — merchant CRUD + onboarding
@@ -7,6 +7,8 @@ Routers:
   - /api/chat            — A2A conversational interface
   - /api/recommendations — recommendation history + status updates
   - /api/signals         — active signals + internal ingest
+  - /api/insights        — AI-generated market insights
+  - /api/inventory       — inventory items + price history
 """
 from contextlib import asynccontextmanager
 import logging
@@ -24,7 +26,9 @@ from routers.dashboard import router as dashboard_router
 from routers.chat import router as chat_router
 from routers.recommendations import router as recommendations_router
 from routers.signals import router as signals_router
+from routers.insights import router as insights_router
 from routers.inventory import router as inventory_router
+from routers.locations import router as locations_router
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -32,14 +36,14 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("MerchantMind backend starting up...")
+    logger.info("BijakSense backend starting up...")
     yield
-    logger.info("MerchantMind backend shutting down...")
+    logger.info("BijakSense backend shutting down...")
     await close_redis()
 
 
 app = FastAPI(
-    title="MerchantMind API",
+    title="BijakSense API",
     description="AI decision co-pilot for SEA SME merchants. A2A + MCP architecture.",
     version="1.0.0",
     lifespan=lifespan,
@@ -62,13 +66,13 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 @app.get("/health", tags=["System"])
 async def health():
-    return {"status": "ok", "service": "merchantmind-backend"}
+    return {"status": "ok", "service": "bijaksense-backend"}
 
 
 @app.get("/", tags=["System"])
 async def root():
     return {
-        "service": "MerchantMind API",
+        "service": "BijakSense API",
         "version": "1.0.0",
         "docs": "/docs",
         "agents": ["orchestrator", "inventory_planner", "market_analyst", "location_scout", "ops_advisor"],
@@ -80,4 +84,6 @@ app.include_router(dashboard_router)
 app.include_router(chat_router)
 app.include_router(recommendations_router)
 app.include_router(signals_router)
+app.include_router(insights_router)
 app.include_router(inventory_router)
+app.include_router(locations_router)

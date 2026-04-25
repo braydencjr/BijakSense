@@ -1,35 +1,85 @@
 """
-MerchantMind — Z.AI GLM API client wrapper.
+BijakSense — AI client wrapper.
 
-Uses the OpenAI Python SDK pointed at Z.AI's OpenAI-compatible base URL.
-All agent calls go through call_glm() or call_glm_json().
+Primary: Google Gemini (gemini-2.5-flash).
+Fallback: ilmu-glm-5.1 via Anthropic-compatible API (api.ilmu.ai/anthropic).
 """
+from __future__ import annotations
+
 import json
 import logging
 from typing import Any
 
-from openai import AsyncOpenAI
+import anthropic
+from google import genai
+from google.genai import types as genai_types
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from config import settings
 
 logger = logging.getLogger(__name__)
 
-_client: AsyncOpenAI | None = None
+_anthropic_client: anthropic.AsyncAnthropic | None = None
+_gemini_client: genai.Client | None = None
 
 
-def get_client() -> AsyncOpenAI:
-    """Return the shared AsyncOpenAI client pointed at Z.AI."""
-    global _client
-    if _client is None:
-        _client = AsyncOpenAI(
+def _get_gemini_client() -> genai.Client:
+    """Return the shared Google Gemini client."""
+    global _gemini_client
+    if _gemini_client is None:
+        _gemini_client = genai.Client(api_key=settings.gemini_api_key)
+    return _gemini_client
+
+
+def get_anthropic_client() -> anthropic.AsyncAnthropic:
+    """Return the shared Anthropic client pointed at ilmu.ai."""
+    global _anthropic_client
+    if _anthropic_client is None:
+        _anthropic_client = anthropic.AsyncAnthropic(
             api_key=settings.zai_api_key,
             base_url=settings.zai_base_url,
         )
-    return _client
+    return _anthropic_client
 
 
-@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
+async def _call_gemini(
+    system_prompt: str,
+    user_message: str,
+    temperature: float = 0.3,
+    max_tokens: int = 1500,
+) -> str:
+    client = _get_gemini_client()
+    response = client.models.generate_content(
+        model="gemini-2.5-flash",
+        contents=user_message,
+        config=genai_types.GenerateContentConfig(
+            systemInstruction=system_prompt,
+            temperature=temperature,
+            maxOutputTokens=max_tokens,
+        ),
+    )
+    return response.text or ""
+
+
+async def _call_anthropic(
+    system_prompt: str,
+    user_message: str,
+    temperature: float = 0.3,
+    max_tokens: int = 1500,
+    model: str | None = None,
+) -> str:
+    client = get_anthropic_client()
+    response = await client.messages.create(
+        model=model or settings.zai_model,
+        max_tokens=max_tokens,
+        temperature=temperature,
+        system=system_prompt,
+        messages=[{"role": "user", "content": user_message}],
+    )
+    return response.content[0].text
+
+
+@retry(stop=stop_after_attempt(2), wait=wait_exponential(multiplier=1, min=2, max=6))
 async def call_glm(
     system_prompt: str,
     user_message: str,
@@ -38,32 +88,33 @@ async def call_glm(
     model: str | None = None,
 ) -> str:
     """
-    Call the Z.AI GLM API and return the response text.
+    Call the AI API and return the response text.
 
-    Args:
-        system_prompt: Agent identity + instruction block
-        user_message: Signal context + query block
-        temperature: Sampling temperature (0.0–1.0)
-        max_tokens: Max tokens in the response
-        model: Override the default model from settings
-
-    Returns:
-        Plain text response string
+    Tries Gemini first, falls back to ilmu-glm (Anthropic-compatible).
     """
-    client = get_client()
-    response = await client.chat.completions.create(
-        model=model or settings.zai_model,
-        temperature=temperature,
-        max_tokens=max_tokens,
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_message},
-        ],
-    )
-    return response.choices[0].message.content or ""
+    try:
+        return await _call_gemini(
+            system_prompt=system_prompt,
+            user_message=user_message,
+            temperature=temperature,
+            max_tokens=max_tokens,
+        )
+    except Exception as e:
+        logger.warning("Gemini call failed (%s), falling back to ilmu-glm", e)
+        try:
+            return await _call_anthropic(
+                system_prompt=system_prompt,
+                user_message=user_message,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                model=model,
+            )
+        except Exception as e2:
+            logger.error("Both AI providers failed. Gemini: %s, ilmu-glm: %s", e, e2)
+            raise
 
 
-@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
+@retry(stop=stop_after_attempt(2), wait=wait_exponential(multiplier=1, min=2, max=6))
 async def call_glm_json(
     system_prompt: str,
     user_message: str,
@@ -72,7 +123,7 @@ async def call_glm_json(
     model: str | None = None,
 ) -> dict[str, Any]:
     """
-    Call the Z.AI GLM API and parse the response as JSON.
+    Call the AI API and parse the response as JSON.
 
     Appends a JSON-only instruction to the system prompt.
     Returns parsed dict; raises ValueError if JSON is invalid.
@@ -91,7 +142,6 @@ async def call_glm_json(
         model=model,
     )
 
-    # Strip markdown fences if the model adds them despite instructions
     cleaned = raw.strip()
     if cleaned.startswith("```"):
         lines = cleaned.split("\n")
@@ -101,5 +151,5 @@ async def call_glm_json(
     try:
         return json.loads(cleaned)
     except json.JSONDecodeError as e:
-        logger.error("GLM returned invalid JSON: %s\nRaw: %s", e, raw[:500])
-        raise ValueError(f"GLM returned non-JSON response: {raw[:200]}") from e
+        logger.error("AI returned invalid JSON: %s\nRaw: %s", e, raw[:500])
+        raise ValueError(f"AI returned non-JSON response: {raw[:200]}") from e

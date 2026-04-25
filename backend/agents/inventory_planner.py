@@ -20,6 +20,8 @@ JSON output schema:
   "triggered_by":        str,
 }
 """
+from __future__ import annotations
+
 import logging
 from typing import Any
 
@@ -31,7 +33,7 @@ from utils.commodity_client import fetch_latest_commodity_price, fetch_commodity
 logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT_ANALYZE = """
-You are the Inventory Planner agent for MerchantMind, an AI co-pilot for SME merchants in Southeast Asia.
+You are the Inventory Planner agent for BijakSense, an AI co-pilot for SME merchants in Southeast Asia.
 
 Assess world supply chain signals, merchant inventory, and REAL-TIME MARKET DATA to produce specific, actionable restocking recommendations.
 Inspired by supply chain analytics best practices, you must:
@@ -44,7 +46,7 @@ Always respond with valid JSON matching the output schema in the docstring. Be c
 """.strip()
 
 SYSTEM_PROMPT_QUERY = """
-You are the Inventory Planner agent for MerchantMind. Answer questions about supply chain,
+You are the Inventory Planner agent for BijakSense. Answer questions about supply chain,
 restocking, and procurement using current market context.
 
 When REAL-TIME MARKET DATA is provided in your context, always cite the specific market prices and 30-day trends to back up your advice. Be specific, data-driven, and write in the second person. Keep responses under 200 words.

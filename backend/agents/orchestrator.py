@@ -1,7 +1,9 @@
 """
-MerchantMind — Orchestrator Agent
+BijakSense — Orchestrator Agent
 The central hub for A2A communication and user interaction.
 """
+from __future__ import annotations
+
 import logging
 from typing import Any, List, Dict
 
@@ -32,7 +34,7 @@ class OrchestratorAgent(A2AAgent):
         
         # Placeholder synthesis logic
         system_prompt = (
-            "You are the MerchantMind Orchestrator. Your job is to coordinate specialist agents "
+            "You are the BijakSense Orchestrator. Your job is to coordinate specialist agents "
             "to help SME merchants in Southeast Asia. Provide a helpful, concise response."
         )
         

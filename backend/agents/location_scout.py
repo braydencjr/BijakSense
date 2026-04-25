@@ -1,7 +1,9 @@
 """
-MerchantMind — Location Scout Agent (Member D)
+BijakSense — Location Scout Agent (Member D)
 Analyzes geographic data, foot traffic, and competitors.
 """
+from __future__ import annotations
+
 import logging
 from typing import Any
 

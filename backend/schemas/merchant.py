@@ -1,5 +1,5 @@
 """
-MerchantMind — Schemas for Merchant, Products, and Ingredients
+BijakSense — Schemas for Merchant, Products, and Ingredients
 """
 from pydantic import BaseModel, ConfigDict
 from typing import List, Optional

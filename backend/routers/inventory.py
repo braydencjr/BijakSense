@@ -1,5 +1,5 @@
 """
-MerchantMind — Inventory Router
+BijakSense — Inventory Router
 Handles inventory items and price history.
 """
 import logging

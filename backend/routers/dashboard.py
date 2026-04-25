@@ -1,5 +1,5 @@
 """
-MerchantMind — Dashboard Router
+BijakSense — Dashboard Router
 Provides fast dashboard state (no LLM, <200ms).
 """
 import logging

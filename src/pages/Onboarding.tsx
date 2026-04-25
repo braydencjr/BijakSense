@@ -5,6 +5,7 @@ import { MapContainer, TileLayer, Marker, Circle, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { Sparkles, MapPin, Building2, Search, ArrowRight, CheckCircle2, TrendingUp, Users, Zap, Store, Coffee, ShoppingBag, Utensils, Briefcase, Star, ChevronRight } from 'lucide-react';
+import logoImage from '../assets/logo.jpg';
 
 // Fix Leaflet default marker icons
 const defaultIcon = L.icon({
@@ -60,6 +61,12 @@ interface AIInsight {
   value: string;
   detail: string;
   color: string;
+}
+
+interface LocationSuggestion {
+  label: string;
+  value: string;
+  source: string;
 }
 
 // ───────────────────────── Business Types Catalogue ──────────────────────
@@ -150,6 +157,21 @@ function generateBusinessInsights(businessName: string, businessType: string, lo
       color: 'teal',
     },
   ];
+}
+
+async function fetchLocationSuggestions(query: string): Promise<LocationSuggestion[]> {
+  if (query.trim().length < 2) return [];
+
+  try {
+    const res = await fetch(
+      `http://localhost:8000/api/locations/autocomplete?q=${encodeURIComponent(query)}&region=Malaysia`
+    );
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
 }
 
 // ─────────────────── Animated Scan Status Text Component ─────────────────
@@ -267,12 +289,43 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
   const [pinDropped, setPinDropped] = useState(false);
   const [scanProgress, setScanProgress] = useState(0);
   const [scatterDots, setScatterDots] = useState<{ lat: number; lng: number }[]>([]);
+  const [locationSuggestions, setLocationSuggestions] = useState<LocationSuggestion[]>([]);
+  const [showLocationSuggestions, setShowLocationSuggestions] = useState(false);
+  const locationSuggestTimer = useRef<number | null>(null);
 
   // Results
   const [suggestions, setSuggestions] = useState<AISuggestion[]>([]);
   const [insights, setInsights] = useState<AIInsight[]>([]);
 
   const mapRef = useRef<L.Map | null>(null);
+
+  const currentLocationValue = path === 'has_business' ? businessForm.location : exploringForm.location;
+
+  useEffect(() => {
+    if (stage !== 'form') {
+      setLocationSuggestions([]);
+      setShowLocationSuggestions(false);
+      if (locationSuggestTimer.current) window.clearTimeout(locationSuggestTimer.current);
+      return;
+    }
+
+    if (locationSuggestTimer.current) window.clearTimeout(locationSuggestTimer.current);
+    const query = currentLocationValue.trim();
+    if (query.length < 2) {
+      setLocationSuggestions([]);
+      return;
+    }
+
+    locationSuggestTimer.current = window.setTimeout(async () => {
+      const suggestions = await fetchLocationSuggestions(query);
+      setLocationSuggestions(suggestions);
+      setShowLocationSuggestions(suggestions.length > 0);
+    }, 250);
+
+    return () => {
+      if (locationSuggestTimer.current) window.clearTimeout(locationSuggestTimer.current);
+    };
+  }, [currentLocationValue, path, stage]);
 
   // ─── Scan animation driver ────────────────────────────────────────────
   useEffect(() => {
@@ -333,8 +386,8 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
       aiInsights: path === 'has_business' ? insights : suggestions,
       onboardedAt: new Date().toISOString(),
     };
-    localStorage.setItem('merchantmind:business', JSON.stringify(data));
-    localStorage.setItem('merchantmind:onboardingComplete', 'true');
+    localStorage.setItem('bijaksense:business', JSON.stringify(data));
+    localStorage.setItem('bijaksense:onboardingComplete', 'true');
     onComplete?.();   // flip App-level state so routes re-evaluate
     navigate('/dashboard');
   }
@@ -353,6 +406,16 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
     setScanProgress(0);
     setScatterDots([]);
     setStage('analyzing');
+  }
+
+  function selectLocationSuggestion(value: string) {
+    if (path === 'has_business') {
+      setBusinessForm(f => ({ ...f, location: value }));
+    } else {
+      setExploringForm(f => ({ ...f, location: value }));
+    }
+    setLocationSuggestions([]);
+    setShowLocationSuggestions(false);
   }
 
   // ─────────────────────────── RENDER ──────────────────────────────────
@@ -377,10 +440,13 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
                   initial={{ scale: 0, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
-                  className="w-16 h-16 rounded-xl flex items-center justify-center text-3xl font-bold mb-8"
-                  style={{ background: 'linear-gradient(135deg,#00D1C1,#00BCAE)', boxShadow: '0 0 40px rgba(0,209,193,0.35)' }}
+                  className="w-16 h-16 rounded-xl mb-8 overflow-hidden"
                 >
-                  M
+                  <img
+                    src={logoImage}
+                    alt="BijakSense logo"
+                    className="w-full h-full object-cover"
+                  />
                 </motion.div>
 
                 <motion.h1
@@ -389,7 +455,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
                   transition={{ delay: 0.35 }}
                   className="text-5xl font-semibold tracking-tight mb-4"
                 >
-                  MerchantMind
+                  BijakSense
                 </motion.h1>
 
                 <motion.p
@@ -506,7 +572,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
                 Do you already have a business in mind?
               </h2>
               <p style={{ color: '#6B7280' }} className="text-lg">
-                MerchantMind will tailor its AI analysis based on your answer.
+                BijakSense will tailor its AI analysis based on your answer.
               </p>
             </motion.div>
 
@@ -652,7 +718,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
                     </>
                   )}
 
-                  <div>
+                  <div className="relative">
                     <label className="block text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: '#6B7280' }}>
                       Location / Area *
                     </label>
@@ -663,6 +729,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
                       onChange={e => {
                         if (path === 'has_business') setBusinessForm(f => ({ ...f, location: e.target.value }));
                         else setExploringForm(f => ({ ...f, location: e.target.value }));
+                        setShowLocationSuggestions(true);
                       }}
                       className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all placeholder:text-neutral-600"
                       style={{
@@ -671,8 +738,32 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
                         color: '#F8F9FA',
                       }}
                       onFocus={e => { e.target.style.borderColor = 'rgba(0,209,193,0.5)'; e.target.style.boxShadow = '0 0 0 3px rgba(0,209,193,0.1)'; }}
-                      onBlur={e => { e.target.style.borderColor = 'rgba(255,255,255,0.1)'; e.target.style.boxShadow = 'none'; }}
+                      onBlur={e => {
+                        e.target.style.borderColor = 'rgba(255,255,255,0.1)';
+                        e.target.style.boxShadow = 'none';
+                        window.setTimeout(() => setShowLocationSuggestions(false), 150);
+                      }}
                     />
+                    {showLocationSuggestions && locationSuggestions.length > 0 && (
+                      <div className="absolute left-0 right-0 top-full mt-2 z-30 rounded-2xl overflow-hidden border border-white/10 bg-[#111318] shadow-2xl">
+                        <div className="px-4 py-2 text-[10px] uppercase tracking-wider text-gray-500 border-b border-white/5">
+                          Suggested locations
+                        </div>
+                        <div className="max-h-56 overflow-y-auto">
+                          {locationSuggestions.map((item) => (
+                            <button
+                              key={`${item.source}-${item.label}`}
+                              type="button"
+                              className="w-full text-left px-4 py-3 text-sm transition-colors hover:bg-white/5"
+                              onMouseDown={() => selectLocationSuggestion(item.value)}
+                            >
+                              <div className="font-medium text-[#F8F9FA]">{item.label}</div>
+                              <div className="text-[11px] text-gray-500 uppercase tracking-wide mt-1">{item.source.replace('_', ' ')}</div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   <div>
@@ -890,7 +981,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
               <div className="text-center mb-6">
                 <h3 className="text-xl font-semibold mb-2">Scanning your area</h3>
                 <p className="text-sm" style={{ color: '#6B7280' }}>
-                  MerchantMind AI is analyzing the 5 km radius around your location.
+                  BijakSense AI is analyzing the 5 km radius around your location.
                 </p>
               </div>
 
@@ -1145,7 +1236,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
                 <div>
                   <p className="text-sm font-medium">Ready to launch your co-pilot</p>
                   <p className="text-xs mt-0.5" style={{ color: '#6B7280' }}>
-                    MerchantMind will continuously monitor signals for your business.
+                    BijakSense will continuously monitor signals for your business.
                   </p>
                 </div>
                 <motion.button
@@ -1159,7 +1250,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
                     color: '#fff',
                   }}
                 >
-                  Start MerchantMind
+                  Start BijakSense
                   <ArrowRight className="w-4 h-4" />
                 </motion.button>
               </motion.div>

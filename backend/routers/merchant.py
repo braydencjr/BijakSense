@@ -1,5 +1,5 @@
 """
-MerchantMind — Merchant Router
+BijakSense — Merchant Router
 Handles merchant onboarding, profile, products, and ingredients.
 """
 import logging
@@ -44,7 +44,7 @@ async def create_merchant(data: MerchantCreate, db: AsyncSession = Depends(get_d
     for i in data.ingredients:
         ingredient = Ingredient(name=i.name, stock_days=i.stock_days, merchant_id=merchant.id)
         db.add(ingredient)
-        
+
     for item in data.inventory_items:
         inv_item = InventoryItem(
             item_name=item.item_name,
@@ -64,7 +64,7 @@ async def create_merchant(data: MerchantCreate, db: AsyncSession = Depends(get_d
 
     await db.commit()
     await db.refresh(merchant)
-    
+
     # Map business_name to name for frontend compatibility if needed
     merchant.name = merchant.business_name
     return merchant
@@ -80,6 +80,6 @@ async def get_merchant(merchant_id: uuid.UUID, db: AsyncSession = Depends(get_db
     merchant = result.scalar_one_or_none()
     if not merchant:
         raise HTTPException(status_code=404, detail="Merchant not found")
-    
+
     merchant.name = merchant.business_name
     return merchant

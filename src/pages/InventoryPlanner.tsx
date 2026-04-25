@@ -36,7 +36,7 @@ export default function InventoryPlanner() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showRestockModal, setShowRestockModal] = useState(false);
   const [priceRange, setPriceRange] = useState<number>(30); // Default to 30 days
-  
+
   // Advanced Filter & Sort States
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'critical' | 'alert'>('all');
@@ -66,6 +66,7 @@ export default function InventoryPlanner() {
   const [restockQty, setRestockQty] = useState<number>(0);
   const [isRestocking, setIsRestocking] = useState(false);
 
+  const [symbols, setSymbols] = useState<Record<string, string>>({});
   const [recs, setRecs] = useState<any[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [latestDate, setLatestDate] = useState<string>('Loading...');
@@ -98,7 +99,7 @@ export default function InventoryPlanner() {
         return;
       }
       const data = await res.json();
-      
+
       const itemsWithHistory = await Promise.all(data.map(async (item: any) => {
         if (item.item_code) {
           try {
@@ -195,16 +196,16 @@ export default function InventoryPlanner() {
       const name = (item.item_name || item.itemName || '').toLowerCase();
       const supplier = (item.supplier_name || item.supplier || '').toLowerCase();
       const query = searchQuery.toLowerCase();
-      
+
       const matchesSearch = name.includes(query) || supplier.includes(query);
-      
+
       const isCrit = (item.quantity || 0) <= (item.reorder_threshold || item.reorderThreshold || 0);
       const isAlert = item.alert || (item.supplier_reliability && item.supplier_reliability < 0.8);
-      
+
       let matchesStatus = true;
       if (statusFilter === 'critical') matchesStatus = isCrit;
       if (statusFilter === 'alert') matchesStatus = isAlert;
-      
+
       return matchesSearch && matchesStatus;
     });
 
@@ -270,7 +271,7 @@ export default function InventoryPlanner() {
     try {
       setIsRestocking(true);
       const updatedQty = (restockItem.quantity || 0) + restockQty;
-      
+
       const res = await fetch(`http://localhost:8000/api/inventory/${restockItem.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -386,6 +387,8 @@ export default function InventoryPlanner() {
                   lead_time_days: 3,
                   manufacturing_cost: 0,
                   shipping_cost: 0
+                  manufacturing_cost: 0,
+                  shipping_cost: 0
                 });
                 setShowAddModal(true);
               }}
@@ -403,7 +406,7 @@ export default function InventoryPlanner() {
         <section className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
           <div className="md:col-span-6 relative group">
             <Search className="absolute left-4 top-3.5 w-4 h-4 transition-colors group-focus-within:text-teal" style={{ color: T.muted }} />
-            <input 
+            <input
               type="text"
               placeholder="Search by item name or supplier..."
               className="w-full h-12 pl-11 pr-4 rounded-2xl bg-white/5 border border-white/5 outline-none focus:ring-2 focus:ring-teal/50 transition-all text-sm"
@@ -412,23 +415,23 @@ export default function InventoryPlanner() {
             />
           </div>
           <div className="md:col-span-6 flex items-center justify-end space-x-2">
-             {[
-               { id: 'all', label: 'All Items', icon: Filter },
-               { id: 'critical', label: 'Low Stock', icon: AlertTriangle },
-               { id: 'alert', label: 'Supplier Alert', icon: TrendingUp }
-             ].map(f => (
-               <button
-                 key={f.id}
-                 onClick={() => setStatusFilter(f.id as any)}
-                 className={cn(
-                   "flex items-center px-4 py-2.5 rounded-xl text-xs font-bold transition-all border",
-                   statusFilter === f.id ? "bg-teal/10 border-teal text-teal shadow-lg shadow-teal-500/10" : "bg-white/5 border-transparent text-muted hover:text-primary hover:bg-white/10"
-                 )}
-               >
-                 <f.icon className="w-3.5 h-3.5 mr-2" />
-                 {f.label}
-               </button>
-             ))}
+            {[
+              { id: 'all', label: 'All Items', icon: Filter },
+              { id: 'critical', label: 'Low Stock', icon: AlertTriangle },
+              { id: 'alert', label: 'Supplier Alert', icon: TrendingUp }
+            ].map(f => (
+              <button
+                key={f.id}
+                onClick={() => setStatusFilter(f.id as any)}
+                className={cn(
+                  "flex items-center px-4 py-2.5 rounded-xl text-xs font-bold transition-all border",
+                  statusFilter === f.id ? "bg-teal/10 border-teal text-teal shadow-lg shadow-teal-500/10" : "bg-white/5 border-transparent text-muted hover:text-primary hover:bg-white/10"
+                )}
+              >
+                <f.icon className="w-3.5 h-3.5 mr-2" />
+                {f.label}
+              </button>
+            ))}
           </div>
         </section>
 
@@ -522,7 +525,7 @@ export default function InventoryPlanner() {
                             >
                               <X className="w-4 h-4" />
                             </button>
-                            <button 
+                            <button
                               onClick={() => {
                                 setRestockItem(item);
                                 setRestockQty(Math.max(0, (item.reorder_threshold || item.reorderThreshold || 0) - (item.quantity || 0)));
@@ -632,11 +635,11 @@ export default function InventoryPlanner() {
                   ))}
                 </div>
               </div>
-              
+
               {/* Internal Analytics Filter */}
               <div className="relative group">
                 <Search className="absolute left-3 top-2.5 w-3.5 h-3.5 opacity-40 group-focus-within:opacity-100 group-focus-within:text-teal transition-all" />
-                <input 
+                <input
                   type="text"
                   placeholder="Filter analytics..."
                   className="w-full h-9 pl-9 pr-4 rounded-xl bg-white/5 border border-white/5 outline-none focus:ring-1 focus:ring-teal/30 transition-all text-xs"
