@@ -237,7 +237,7 @@ export default function IntelligenceMap({ isActive = true }: IntelligenceMapProp
   const [mapView, setMapView] = React.useState<'regional' | 'local'>('regional');
   const [localMapSize, setLocalMapSize] = React.useState<'large' | 'small'>('large');
   const [now, setNow] = React.useState(new Date());
-  const [scanRadius, setScanRadius] = React.useState(4600);
+  const [scanRadius, setScanRadius] = React.useState(4200);
   const [hotspotIndex, setHotspotIndex] = React.useState(0);
   const [onboarding, setOnboarding] = React.useState<ExpansionOnboarding>({
     businessType: MERCHANT_INFO.subCategory,
@@ -331,7 +331,12 @@ export default function IntelligenceMap({ isActive = true }: IntelligenceMapProp
   const crowdIcon = L.divIcon({ className: 'bg-transparent', html: `<div style="width:14px; height:14px; background:#00D1C1; border:2px solid #fff; border-radius:50%; box-shadow:0 0 8px #00D1C1;"></div>`, iconSize: [14, 14], iconAnchor: [7, 7] });
   const recommendationIcon = L.divIcon({ className: 'bg-transparent', html: `<div style="width:18px; height:18px; background:#f59e0b; border:2px solid #fff; border-radius:6px; transform: rotate(45deg); box-shadow:0 0 10px rgba(245,158,11,0.9);"></div>`, iconSize: [18, 18], iconAnchor: [9, 9] });
 
-  const localHotspots = localSignals.filter(s => s.type === 'competitor' || s.type === 'opportunity');
+  const displayRadiusMeters = Math.round(onboarding.maxDistanceKm * 1000);
+  const displayedLocalSignals = React.useMemo(
+    () => localSignals.filter((signal) => haversineKm(MERCHANT_INFO.coordinates, signal.coords) <= onboarding.maxDistanceKm),
+    [localSignals, onboarding.maxDistanceKm]
+  );
+  const localHotspots = displayedLocalSignals.filter(s => s.type === 'competitor' || s.type === 'opportunity');
   const activeHotspot = localHotspots[hotspotIndex % Math.max(localHotspots.length, 1)];
   const locationRecommendations = React.useMemo(
     () => buildLocationRecommendations(localSignals, onboarding, MERCHANT_INFO.coordinates),
@@ -353,10 +358,22 @@ export default function IntelligenceMap({ isActive = true }: IntelligenceMapProp
   React.useEffect(() => {
     if (!isActive) return;
     const clock = setInterval(() => setNow(new Date()), 1000);
-    const scan = setInterval(() => setScanRadius(p => p >= 5000 ? 4200 : p + 120), 900);
+    const minScan = Math.round(displayRadiusMeters * 0.82);
+    const maxScan = displayRadiusMeters;
+    const scan = setInterval(() => setScanRadius(p => p >= maxScan ? minScan : p + Math.max(80, Math.round(displayRadiusMeters * 0.024))), 900);
     const hotspot = setInterval(() => setHotspotIndex(p => (p + 1) % Math.max(localHotspots.length, 1)), 3500);
     return () => { clearInterval(clock); clearInterval(scan); clearInterval(hotspot); };
-  }, [isActive, localHotspots.length]);
+  }, [isActive, localHotspots.length, displayRadiusMeters]);
+
+  React.useEffect(() => {
+    setScanRadius(Math.round(displayRadiusMeters * 0.9));
+  }, [displayRadiusMeters]);
+
+  React.useEffect(() => {
+    if (!selectedLocalSignal) return;
+    const stillVisible = displayedLocalSignals.some((s) => s.id === selectedLocalSignal);
+    if (!stillVisible) setSelectedLocalSignal(null);
+  }, [selectedLocalSignal, displayedLocalSignals]);
 
 
   return (
@@ -381,7 +398,7 @@ export default function IntelligenceMap({ isActive = true }: IntelligenceMapProp
           </div>
           <div className="flex items-center rounded bg-white/5 border border-white/10 p-0.5">
             <button onClick={() => setMapView('regional')} className={`px-2 py-1 text-[9px] font-bold rounded ${mapView === 'regional' ? 'bg-[#00D1C1]/20 text-[#00D1C1]' : 'text-gray-500'}`}>REGIONAL</button>
-            <button onClick={() => setMapView('local')} className={`px-2 py-1 text-[9px] font-bold rounded ${mapView === 'local' ? 'bg-[#00D1C1]/20 text-[#00D1C1]' : 'text-gray-500'}`}>LOCAL 5KM</button>
+            <button onClick={() => setMapView('local')} className={`px-2 py-1 text-[9px] font-bold rounded ${mapView === 'local' ? 'bg-[#00D1C1]/20 text-[#00D1C1]' : 'text-gray-500'}`}>LOCAL {onboarding.maxDistanceKm.toFixed(1)}KM</button>
           </div>
         </div>
         <div className="flex items-center gap-4">
@@ -400,7 +417,7 @@ export default function IntelligenceMap({ isActive = true }: IntelligenceMapProp
           <div className="absolute top-4 left-4 z-[1000] bg-[#111318]/90 backdrop-blur p-2 border border-[#00D1C1]/30 rounded shadow-2xl">
             <div className="flex items-center gap-2">
               <Zap className="w-3 h-3 text-[#00D1C1]" />
-              <p className="text-[10px] font-medium text-gray-400">{mapView === 'regional' ? 'SEA-LEVEL TRACKING' : 'LOCAL 5KM RADIUS'}</p>
+              <p className="text-[10px] font-medium text-gray-400">{mapView === 'regional' ? 'SEA-LEVEL TRACKING' : `LOCAL ${onboarding.maxDistanceKm.toFixed(1)}KM RADIUS`}</p>
             </div>
             {mapView === 'local' && activeHotspot && (
               <p className="text-[9px] mt-1 font-bold text-[#00D1C1]">◉ Detection: {activeHotspot.name}</p>
@@ -435,9 +452,9 @@ export default function IntelligenceMap({ isActive = true }: IntelligenceMapProp
 
               {mapView === 'local' && (
                 <>
-                  <Circle center={[MERCHANT_INFO.coordinates.lat, MERCHANT_INFO.coordinates.lng]} radius={5000} pathOptions={{ color: '#00D1C1', weight: 1.5, opacity: 0.5, dashArray: '4 6' }} />
+                  <Circle center={[MERCHANT_INFO.coordinates.lat, MERCHANT_INFO.coordinates.lng]} radius={displayRadiusMeters} pathOptions={{ color: '#00D1C1', weight: 1.5, opacity: 0.5, dashArray: '4 6' }} />
                   <Circle center={[MERCHANT_INFO.coordinates.lat, MERCHANT_INFO.coordinates.lng]} radius={scanRadius} pathOptions={{ color: '#00D1C1', weight: 1, opacity: 0.2 }} />
-                  {localSignals.map(s => (
+                  {displayedLocalSignals.map(s => (
                     <Marker
                       key={s.id}
                       position={[s.coords.lat, s.coords.lng]}
