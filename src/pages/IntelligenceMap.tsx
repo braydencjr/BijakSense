@@ -1,7 +1,7 @@
 import React from 'react';
 import { MapContainer, TileLayer, Marker, Polyline, Circle, useMap } from 'react-leaflet';
 import { motion, AnimatePresence } from 'motion/react';
-import { Bell, Target, Zap } from 'lucide-react';
+import { Bell, Target, Zap, Sparkles, MapPinned } from 'lucide-react';
 import { MERCHANT_INFO } from '../data/mock';
 import { getCached, setCache, isCached } from '../lib/cache';
 import L from 'leaflet';
@@ -41,6 +41,123 @@ interface LocalSignal {
 
 interface IntelligenceMapProps {
   isActive?: boolean;
+}
+
+interface ExpansionOnboarding {
+  businessType: string;
+  expansionGoal: 'kiosk' | 'full-branch' | 'cloud-kitchen';
+  monthlyRentBudget: number;
+  preferredFootTraffic: 'medium' | 'high' | 'very-high';
+  maxDistanceKm: number;
+}
+
+interface LocationRecommendation {
+  id: string;
+  name: string;
+  coords: { lat: number; lng: number };
+  distanceKm: number;
+  footTrafficScore: number;
+  rentEstimateMyr: number;
+  rentOpportunityScore: number;
+  locationPotentialScore: number;
+  overallScore: number;
+  summary: string;
+  rationale: string;
+}
+
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+
+function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }) {
+  const toRad = (n: number) => (n * Math.PI) / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const lat1 = toRad(a.lat);
+  const lat2 = toRad(b.lat);
+
+  const h =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+
+  return 6371 * (2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h)));
+}
+
+function urgencyBoost(urgency: string) {
+  if (urgency === 'red') return 14;
+  if (urgency === 'amber') return 9;
+  return 6;
+}
+
+function extractAreaName(name: string) {
+  return name
+    .replace(/\s+MRT.*$/i, '')
+    .replace(/\s+Mall.*$/i, '')
+    .trim();
+}
+
+function buildLocationRecommendations(
+  localSignals: LocalSignal[],
+  onboarding: ExpansionOnboarding,
+  merchantCoords: { lat: number; lng: number }
+) {
+  const opportunities = localSignals.filter((signal) => signal.type === 'opportunity');
+  const competitors = localSignals.filter((signal) => signal.type === 'competitor');
+  const trafficWeight = onboarding.preferredFootTraffic === 'very-high' ? 1.15 : onboarding.preferredFootTraffic === 'high' ? 1.08 : 1;
+
+  return opportunities
+    .map((opp): LocationRecommendation => {
+      const distanceKm = haversineKm(merchantCoords, opp.coords);
+      const nearbyCompetitors = competitors.filter((comp) => haversineKm(opp.coords, comp.coords) <= 1.2).length;
+      const anchorBoost = /mrt|mall|hub|transit/i.test(opp.name) ? 10 : 0;
+      const urgency = urgencyBoost(opp.urgency);
+
+      const footTrafficScore = clamp(
+        (56 + urgency + anchorBoost + nearbyCompetitors * 3 + Math.max(0, 16 - distanceKm * 4)) * trafficWeight,
+        35,
+        98
+      );
+
+      const rentEstimateMyr = Math.round(2600 + footTrafficScore * 21 + nearbyCompetitors * 320);
+      const rentOpportunityScore = clamp(
+        72 + (onboarding.monthlyRentBudget - rentEstimateMyr) / 90,
+        18,
+        96
+      );
+
+      const locationPotentialScore = clamp(
+        0.48 * footTrafficScore +
+          0.32 * rentOpportunityScore +
+          0.20 * Math.max(0, 100 - distanceKm * 11),
+        22,
+        98
+      );
+
+      const overallScore = clamp(
+        Math.round(0.5 * locationPotentialScore + 0.3 * footTrafficScore + 0.2 * rentOpportunityScore),
+        0,
+        99
+      );
+
+      const area = extractAreaName(opp.name);
+      const rentTone = rentEstimateMyr <= onboarding.monthlyRentBudget ? 'Rent is manageable' : 'Rent is above your target';
+      const transitTone = /mrt/i.test(opp.name) ? 'MRT connectivity is improving' : 'accessibility is stable';
+
+      return {
+        id: `rec-${opp.id}`,
+        name: area || opp.name,
+        coords: opp.coords,
+        distanceKm,
+        footTrafficScore,
+        rentEstimateMyr,
+        rentOpportunityScore,
+        locationPotentialScore,
+        overallScore,
+        summary: `${area || opp.name} is a good opportunity. ${rentTone} and ${transitTone}.`,
+        rationale: `${opp.description} Nearby competition: ${nearbyCompetitors}. Estimated rent: RM ${rentEstimateMyr.toLocaleString()}/month.`,
+      };
+    })
+    .filter((rec) => rec.distanceKm <= onboarding.maxDistanceKm)
+    .sort((a, b) => b.overallScore - a.overallScore)
+    .slice(0, 3);
 }
 
 function MapAutoResize({ isActive }: { isActive: boolean }) {
@@ -115,12 +232,20 @@ const SIGNAL_SUPPORTING_MEDIA: Record<string, { label: string; image: string }[]
 export default function IntelligenceMap({ isActive = true }: IntelligenceMapProps) {
   const [selectedRegionalSignal, setSelectedRegionalSignal] = React.useState<string | null>(null);
   const [selectedLocalSignal, setSelectedLocalSignal] = React.useState<string | null>(null);
+  const [selectedRecommendation, setSelectedRecommendation] = React.useState<string | null>(null);
   const [selectedAlert, setSelectedAlert] = React.useState<string | null>(null);
   const [mapView, setMapView] = React.useState<'regional' | 'local'>('regional');
   const [localMapSize, setLocalMapSize] = React.useState<'large' | 'small'>('large');
   const [now, setNow] = React.useState(new Date());
   const [scanRadius, setScanRadius] = React.useState(4600);
   const [hotspotIndex, setHotspotIndex] = React.useState(0);
+  const [onboarding, setOnboarding] = React.useState<ExpansionOnboarding>({
+    businessType: MERCHANT_INFO.subCategory,
+    expansionGoal: 'full-branch',
+    monthlyRentBudget: 5500,
+    preferredFootTraffic: 'high',
+    maxDistanceKm: 5,
+  });
 
   const [regionalSignals, setRegionalSignals] = React.useState<RegionalSignal[]>(() => getCached<RegionalSignal[]>(MAP_REGIONAL_CACHE_KEY) || []);
   const [localSignals, setLocalSignals] = React.useState<LocalSignal[]>(() => getCached<LocalSignal[]>(MAP_LOCAL_CACHE_KEY) || []);
@@ -204,9 +329,26 @@ export default function IntelligenceMap({ isActive = true }: IntelligenceMapProp
   const merchantIcon = L.divIcon({ className: 'bg-transparent', html: `<div class="mm-merchant-dot" style="width:24px; height:24px; background:#fff; border:4px solid #14b8a6; border-radius:50%; box-shadow: 0 0 20px #14b8a6;"></div>`, iconSize: [24, 24], iconAnchor: [12, 12] });
   const competitorIcon = L.divIcon({ className: 'bg-transparent', html: `<div style="width:14px; height:14px; background:#FF4B4B; border:2px solid #fff; border-radius:50%; box-shadow:0 0 8px #FF4B4B;"></div>`, iconSize: [14, 14], iconAnchor: [7, 7] });
   const crowdIcon = L.divIcon({ className: 'bg-transparent', html: `<div style="width:14px; height:14px; background:#00D1C1; border:2px solid #fff; border-radius:50%; box-shadow:0 0 8px #00D1C1;"></div>`, iconSize: [14, 14], iconAnchor: [7, 7] });
+  const recommendationIcon = L.divIcon({ className: 'bg-transparent', html: `<div style="width:18px; height:18px; background:#f59e0b; border:2px solid #fff; border-radius:6px; transform: rotate(45deg); box-shadow:0 0 10px rgba(245,158,11,0.9);"></div>`, iconSize: [18, 18], iconAnchor: [9, 9] });
 
   const localHotspots = localSignals.filter(s => s.type === 'competitor' || s.type === 'opportunity');
   const activeHotspot = localHotspots[hotspotIndex % Math.max(localHotspots.length, 1)];
+  const locationRecommendations = React.useMemo(
+    () => buildLocationRecommendations(localSignals, onboarding, MERCHANT_INFO.coordinates),
+    [localSignals, onboarding]
+  );
+  const featuredRecommendation = locationRecommendations.find((rec) => rec.id === selectedRecommendation) || locationRecommendations[0] || null;
+
+  React.useEffect(() => {
+    if (mapView !== 'local') return;
+    if (locationRecommendations.length === 0) {
+      setSelectedRecommendation(null);
+      return;
+    }
+    if (!selectedRecommendation || !locationRecommendations.some((rec) => rec.id === selectedRecommendation)) {
+      setSelectedRecommendation(locationRecommendations[0].id);
+    }
+  }, [mapView, selectedRecommendation, locationRecommendations]);
 
   React.useEffect(() => {
     if (!isActive) return;
@@ -303,10 +445,155 @@ export default function IntelligenceMap({ isActive = true }: IntelligenceMapProp
                       eventHandlers={{ click: () => setSelectedLocalSignal(s.id === selectedLocalSignal ? null : s.id) }}
                     />
                   ))}
+                  {locationRecommendations.map((rec) => (
+                    <Marker
+                      key={rec.id}
+                      position={[rec.coords.lat, rec.coords.lng]}
+                      icon={recommendationIcon}
+                      eventHandlers={{
+                        click: () => {
+                          setSelectedRecommendation(rec.id);
+                          setSelectedLocalSignal(null);
+                        },
+                      }}
+                    />
+                  ))}
                 </>
               )}
             </MapContainer>
           </div>
+
+          {mapView === 'local' && (
+            <div className="absolute right-4 top-4 z-[1100] w-[23rem] max-w-[calc(100%-2rem)] pointer-events-auto space-y-3">
+              <div className="bg-[#111318]/95 border border-white/10 rounded-xl p-3 shadow-2xl backdrop-blur-md">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-[#00D1C1]" />
+                    <p className="text-[11px] font-bold uppercase tracking-wide text-[#00D1C1]">AI Expansion Scout</p>
+                  </div>
+                  <span className="text-[9px] text-gray-400">Onboarding + map coordinates</span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="text-[10px] text-gray-400">
+                    Business type
+                    <input
+                      value={onboarding.businessType}
+                      onChange={(e) => setOnboarding((prev) => ({ ...prev, businessType: e.target.value }))}
+                      className="mt-1 w-full rounded border border-white/10 bg-white/5 px-2 py-1.5 text-[11px] text-gray-100"
+                    />
+                  </label>
+
+                  <label className="text-[10px] text-gray-400">
+                    Expansion goal
+                    <select
+                      value={onboarding.expansionGoal}
+                      onChange={(e) => setOnboarding((prev) => ({ ...prev, expansionGoal: e.target.value as ExpansionOnboarding['expansionGoal'] }))}
+                      className="mt-1 w-full rounded border border-white/10 bg-white/5 px-2 py-1.5 text-[11px] text-gray-100"
+                    >
+                      <option value="kiosk">Kiosk</option>
+                      <option value="full-branch">Full branch</option>
+                      <option value="cloud-kitchen">Cloud kitchen</option>
+                    </select>
+                  </label>
+
+                  <label className="text-[10px] text-gray-400">
+                    Max rent (RM)
+                    <input
+                      type="number"
+                      min={1000}
+                      step={100}
+                      value={onboarding.monthlyRentBudget}
+                      onChange={(e) => {
+                        const next = Number(e.target.value);
+                        setOnboarding((prev) => ({ ...prev, monthlyRentBudget: Number.isFinite(next) ? next : prev.monthlyRentBudget }));
+                      }}
+                      className="mt-1 w-full rounded border border-white/10 bg-white/5 px-2 py-1.5 text-[11px] text-gray-100"
+                    />
+                  </label>
+
+                  <label className="text-[10px] text-gray-400">
+                    Foot traffic target
+                    <select
+                      value={onboarding.preferredFootTraffic}
+                      onChange={(e) => setOnboarding((prev) => ({ ...prev, preferredFootTraffic: e.target.value as ExpansionOnboarding['preferredFootTraffic'] }))}
+                      className="mt-1 w-full rounded border border-white/10 bg-white/5 px-2 py-1.5 text-[11px] text-gray-100"
+                    >
+                      <option value="medium">Medium</option>
+                      <option value="high">High</option>
+                      <option value="very-high">Very High</option>
+                    </select>
+                  </label>
+                </div>
+
+                <label className="block text-[10px] text-gray-400 mt-3">
+                  Scout radius: {onboarding.maxDistanceKm.toFixed(1)} km
+                  <input
+                    type="range"
+                    min={2}
+                    max={8}
+                    step={0.5}
+                    value={onboarding.maxDistanceKm}
+                    onChange={(e) => setOnboarding((prev) => ({ ...prev, maxDistanceKm: Number(e.target.value) }))}
+                    className="mt-1 w-full accent-[#00D1C1]"
+                  />
+                </label>
+              </div>
+
+              {featuredRecommendation && (
+                <div className="bg-[#111318]/95 border border-[#00D1C1]/25 rounded-xl p-3 shadow-2xl backdrop-blur-md">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-wide text-[#00D1C1]">Top AI Recommendation</p>
+                      <p className="text-sm font-semibold text-white mt-1">{featuredRecommendation.name}</p>
+                    </div>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-[#00D1C1]/10 border border-[#00D1C1]/25 text-[#00D1C1]">
+                      SCORE {featuredRecommendation.overallScore}
+                    </span>
+                  </div>
+
+                  <p className="text-[12px] text-gray-300 mt-2 leading-relaxed">{featuredRecommendation.summary}</p>
+                  <p className="text-[10px] text-gray-500 mt-2 leading-relaxed">{featuredRecommendation.rationale}</p>
+
+                  <div className="grid grid-cols-2 gap-2 mt-3 text-[10px]">
+                    <div className="rounded bg-white/5 border border-white/10 p-2">
+                      <p className="text-gray-500 uppercase font-bold">Location potential</p>
+                      <p className="text-[#00D1C1] font-semibold mt-1">{featuredRecommendation.locationPotentialScore.toFixed(0)}/100</p>
+                    </div>
+                    <div className="rounded bg-white/5 border border-white/10 p-2">
+                      <p className="text-gray-500 uppercase font-bold">Foot traffic</p>
+                      <p className="text-[#00D1C1] font-semibold mt-1">{featuredRecommendation.footTrafficScore.toFixed(0)}/100</p>
+                    </div>
+                    <div className="rounded bg-white/5 border border-white/10 p-2">
+                      <p className="text-gray-500 uppercase font-bold">Rent estimate</p>
+                      <p className="text-[#00D1C1] font-semibold mt-1">RM {featuredRecommendation.rentEstimateMyr.toLocaleString()}</p>
+                    </div>
+                    <div className="rounded bg-white/5 border border-white/10 p-2">
+                      <p className="text-gray-500 uppercase font-bold">Coordinates</p>
+                      <p className="text-[#00D1C1] font-semibold mt-1">{featuredRecommendation.coords.lat.toFixed(4)}, {featuredRecommendation.coords.lng.toFixed(4)}</p>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 flex items-center gap-2 overflow-x-auto mm-scroll">
+                    {locationRecommendations.map((rec) => (
+                      <button
+                        key={rec.id}
+                        onClick={() => setSelectedRecommendation(rec.id)}
+                        className={`shrink-0 px-2 py-1 rounded border text-[10px] font-semibold ${selectedRecommendation === rec.id ? 'border-[#00D1C1]/40 text-[#00D1C1] bg-[#00D1C1]/10' : 'border-white/10 text-gray-400 bg-white/5'}`}
+                      >
+                        {rec.name}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="mt-3 flex items-center gap-2 text-[10px] text-gray-400">
+                    <MapPinned className="w-3 h-3 text-[#00D1C1]" />
+                    Suggested sites are pinned as gold markers on the map.
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Signal Detail Overlays — two-column layout, right = info+source, left = images */}
           <AnimatePresence>
